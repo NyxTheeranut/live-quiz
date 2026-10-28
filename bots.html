@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiz load test</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  body { font:16px/1.5 system-ui, sans-serif; max-width:640px; margin:40px auto; padding:0 20px; color:#172036; }
+  input, button { font:inherit; padding:10px 14px; margin:4px 0; }
+  pre { background:#172036; color:#E8ECF5; padding:16px; border-radius:10px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Rehearsal bots</h1>
+<p>Create a game on host.html, then launch bots here. Each bot is a real player: it joins, listens for questions and answers at a random moment.</p>
+<label>PIN <input id="pin" inputmode="numeric" maxlength="6"></label><br>
+<label>Bots in this tab <input id="n" type="number" value="25" min="1" max="100"></label><br>
+<label>Name prefix <input id="prefix" value="botA"></label><br>
+<button id="go">Launch bots</button>
+<pre id="log">Idle.</pre>
+<script>
+const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
+const stats = { joined: 0, subscribed: 0, messages: 0, answered: 0, rejected: 0, errors: [] };
+const draw = () => document.getElementById('log').textContent =
+  `joined      ${stats.joined}\nsubscribed  ${stats.subscribed}\nmessages in ${stats.messages}\n` +
+  `answers ok  ${stats.answered}\nrejected    ${stats.rejected}\n` +
+  (stats.errors.length ? '\nlast errors:\n' + stats.errors.slice(-5).join('\n') : '');
+
+document.getElementById('go').onclick = async () => {
+  const pin = document.getElementById('pin').value.trim();
+  const n = +document.getElementById('n').value;
+  const prefix = document.getElementById('prefix').value.trim() || 'bot';
+  setInterval(draw, 500);
+  for (let i = 0; i < n; i++) {
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, storageKey: 'bot-' + prefix + i }
+    });
+    const { data, error } = await db.rpc('join_game', { p_pin: pin, p_nick: prefix + String(i).padStart(3, '0') });
+    if (error) { stats.errors.push(error.message); continue; }
+    stats.joined++;
+    db.channel('quiz-' + pin, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'state' }, ({ payload: m }) => {
+        stats.messages++;
+        if (m.type !== 'question') return;
+        const options = m.choices.map((c, k) => c ? k : -1).filter(k => k >= 0);
+        const pick = options[Math.floor(Math.random() * options.length)];
+        const wait = 500 + Math.random() * Math.max(0, m.duration - 2) * 1000;
+        setTimeout(async () => {
+          const r = await db.rpc('submit_answer', { p_player: data.player_id, p_idx: m.idx, p_choice: pick });
+          if (r.error) { stats.rejected++; stats.errors.push(r.error.message); } else stats.answered++;
+        }, wait);
+      })
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') stats.subscribed++;
+        else if (status !== 'CLOSED') stats.errors.push(prefix + i + ': ' + status);
+      });
+  }
+};
+</script>
+</body>
+</html>

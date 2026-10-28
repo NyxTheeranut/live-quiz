@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Host the quiz</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root { --ink:#172036; --bg:#F4F6FB; --line:#D6DCE8; --a:#E4572E; --b:#2E6FDE; --c:#D99A00; --d:#159A7A; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:18px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:1100px; margin:0 auto; padding:32px 24px 64px; }
+  .hide { display:none !important; }
+  h1 { font-size:2.2rem; margin:0 0 16px; } h2 { font-size:2rem; margin:12px 0 20px; }
+  label { display:block; font-weight:600; margin-top:16px; }
+  input, textarea { width:100%; font:inherit; font-size:16px; padding:12px; border:2px solid var(--line); border-radius:10px; margin-top:6px; background:#fff; }
+  textarea { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:14px; }
+  button { font:inherit; font-weight:700; padding:14px 26px; border:none; border-radius:12px; background:var(--ink); color:#fff; cursor:pointer; margin-top:20px; }
+  button.ghost { background:transparent; color:var(--ink); border:2px solid var(--ink); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline:3px solid #7B5CFF; outline-offset:2px; }
+  .err { color:#B00020; min-height:1.4em; }
+  .muted { opacity:.7; }
+  .joinline { font-size:1.4rem; }
+  .pin { font-size:clamp(4rem, 14vw, 9rem); font-weight:900; letter-spacing:.08em; font-variant-numeric:tabular-nums; line-height:1; margin:12px 0; }
+  .names { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .names span { background:#fff; border:2px solid var(--line); padding:6px 12px; border-radius:999px; font-weight:600; }
+  .qhead { display:flex; justify-content:space-between; align-items:center; font-weight:700; gap:16px; }
+  .timer { font-size:3rem; font-weight:900; font-variant-numeric:tabular-nums; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .opt { color:#fff; padding:28px 22px; border-radius:16px; font-size:1.4rem; font-weight:700; }
+  .c0 { background:var(--a); } .c1 { background:var(--b); } .c2 { background:var(--c); } .c3 { background:var(--d); }
+  .bar { display:grid; grid-template-columns:44px 1fr 60px; align-items:center; gap:12px; margin:10px 0; opacity:.45; }
+  .bar.right { opacity:1; }
+  .bar .lab { color:#fff; border-radius:8px; text-align:center; font-weight:800; padding:6px 0; }
+  .track { background:#fff; border:2px solid var(--line); border-radius:10px; height:38px; overflow:hidden; }
+  .fill { height:100%; transition:width .6s ease; }
+  ol.board { padding-left:1.4em; font-size:1.3rem; } ol.board li { padding:6px 0; border-bottom:1px solid var(--line); }
+  ol.board b { float:right; font-variant-numeric:tabular-nums; }
+  code { background:#fff; border:1px solid var(--line); padding:2px 6px; border-radius:6px; word-break:break-all; }
+  @media (prefers-reduced-motion: reduce) { .fill { transition:none; } }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- 1. Setup -->
+  <section id="h-setup">
+    <h1>Host a quiz</h1>
+    <div id="resumeBox" class="hide">
+      <p>You have a game in progress (PIN <b id="resumePin"></b>).</p>
+      <button id="resumeBtn">Resume that game</button>
+      <button id="discardBtn" class="ghost">Start fresh</button>
+    </div>
+    <label>Title <input id="title" value="Friday quiz"></label>
+    <label>Questions — copy the rows from your Google Sheet and paste here
+      <span class="muted">(prompt · A · B · C · D · correct letter · seconds)</span>
+      <textarea id="qs" rows="10">prompt	A	B	C	D	correct	seconds
+What is the capital of Thailand?	Bangkok	Chiang Mai	Phuket	Khon Kaen	A	15
+How many minutes are in 2 hours?	60	90	120	240	C	15
+Which planet is closest to the Sun?	Venus	Mercury	Mars	Earth	B	20</textarea>
+    </label>
+    <button id="createBtn">Create game</button>
+    <p id="setupErr" class="err" role="alert"></p>
+  </section>
+
+  <!-- 2. Lobby -->
+  <section id="h-lobby" class="hide">
+    <p class="joinline">Go to <b id="joinUrl"></b> and enter</p>
+    <div class="pin" id="pinBig"></div>
+    <p id="count" class="muted">0 players</p>
+    <div id="names" class="names"></div>
+    <button id="startBtn">Start the quiz</button>
+  </section>
+
+  <!-- 3. Question open -->
+  <section id="h-q" class="hide">
+    <div class="qhead"><span id="qnum"></span><span id="qtimer" class="timer"></span><span id="qans"></span></div>
+    <h2 id="qprompt"></h2>
+    <div class="grid" id="qchoices"></div>
+    <button id="revealBtn" class="ghost">Reveal now</button>
+  </section>
+
+  <!-- 4. Reveal + leaderboard -->
+  <section id="h-reveal" class="hide">
+    <h2 id="rprompt"></h2>
+    <div id="bars"></div>
+    <h3>Top 5</h3>
+    <ol id="top" class="board"></ol>
+    <button id="nextBtn">Next question</button>
+  </section>
+
+  <!-- 5. End -->
+  <section id="h-end" class="hide">
+    <h1>Final results</h1>
+    <ol id="podium" class="board"></ol>
+    <button id="csvBtn">Download results (CSV)</button>
+    <button id="newBtn" class="ghost">New game</button>
+    <p class="muted">For the Google Sheets export: PIN <code id="endPin"></code> host token <code id="endToken"></code></p>
+  </section>
+
+</main>
+
+<script>
+const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+const SCREENS = ['h-setup', 'h-lobby', 'h-q', 'h-reveal', 'h-end'];
+const show = id => SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+let G = null;            // { game_id, pin, host_token, title, questions, qi }
+let channel = null, poll = null, tick = null, revealing = false;
+
+const save = () => { try { localStorage.setItem('quiz-host', JSON.stringify(G)); } catch (e) {} };
+const stopTimers = () => { clearInterval(poll); clearInterval(tick); };
+const host = (fn, args) => db.rpc(fn, { p_game: G.game_id, p_token: G.host_token, ...args });
+
+// ---------- Parse rows pasted from Google Sheets (tab-separated) or CSV ----------
+function parseRows(text) {
+  const delim = text.includes('\t') ? '\t' : ',';
+  const rows = []; let row = [], cell = '', quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === '') quoted = true;
+    else if (ch === delim) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+function toQuestions(rows) {
+  return rows
+    .filter(r => r.length >= 6 && /^[ABCD]$/i.test((r[5] || '').trim()))   // skips the header row
+    .map(r => ({
+      prompt: r[0].trim(),
+      choices: [r[1], r[2], r[3], r[4]].map(s => (s || '').trim()),
+      correct: 'ABCD'.indexOf(r[5].trim().toUpperCase()),
+      duration: Math.min(120, Math.max(5, parseInt(r[6], 10) || 20))
+    }))
+    .filter(q => q.prompt && q.choices[q.correct]);
+}
+
+// ---------- Realtime channel: host broadcasts, phones listen ----------
+function openChannel() {
+  channel = db.channel('quiz-' + G.pin, { config: { broadcast: { self: false, ack: true } } });
+  channel.subscribe();
+}
+const send = payload => channel.send({ type: 'broadcast', event: 'state', payload });
+
+// ---------- 1. Setup ----------
+try {
+  const saved = JSON.parse(localStorage.getItem('quiz-host'));
+  if (saved && saved.pin) { $('resumePin').textContent = saved.pin; $('resumeBox').classList.remove('hide'); }
+} catch (e) {}
+
+$('resumeBtn').onclick = () => {
+  G = JSON.parse(localStorage.getItem('quiz-host'));
+  openChannel();
+  G.qi < 0 ? lobby() : setTimeout(reveal, 800);   // mid-game refresh: jump to that question's reveal
+};
+$('discardBtn').onclick = () => { localStorage.removeItem('quiz-host'); $('resumeBox').classList.add('hide'); };
+
+$('createBtn').onclick = async () => {
+  const questions = toQuestions(parseRows($('qs').value));
+  if (!questions.length) return void ($('setupErr').textContent =
+    'No valid rows found. Each row needs a prompt, up to four choices and a correct letter A–D.');
+  $('createBtn').disabled = true; $('setupErr').textContent = '';
+  const title = $('title').value.trim();
+  const { data, error } = await db.rpc('create_game', { p_title: title, p_questions: questions });
+  $('createBtn').disabled = false;
+  if (error) return void ($('setupErr').textContent = error.message);
+  G = { ...data, title, questions, qi: -1 };
+  save(); openChannel(); lobby();
+};
+
+// ---------- 2. Lobby ----------
+function lobby() {
+  const url = new URL('./', location.href);
+  $('joinUrl').textContent = url.host + url.pathname;
+  $('pinBig').textContent = G.pin;
+  show('h-lobby');
+  stopTimers();
+  const refresh = async () => {
+    const { data } = await db.from('players').select('nickname').eq('game_id', G.game_id).order('joined_at');
+    if (!data) return;
+    $('count').textContent = data.length + (data.length === 1 ? ' player' : ' players');
+    $('names').innerHTML = data.map(p => `<span>${esc(p.nickname)}</span>`).join('');
+  };
+  refresh(); poll = setInterval(refresh, 2000);
+}
+$('startBtn').onclick = () => askQuestion(0);
+
+// ---------- 3. Question ----------
+async function askQuestion(i) {
+  stopTimers(); revealing = false;
+  const q = G.questions[i];
+  const { error } = await host('set_phase', { p_phase: 'question', p_q: i });
+  if (error) return alert(error.message);
+  G.qi = i; save();
+  await send({ type: 'question', idx: i, prompt: q.prompt, choices: q.choices, duration: q.duration });
+
+  $('qnum').textContent = `Question ${i + 1} of ${G.questions.length}`;
+  $('qprompt').textContent = q.prompt;
+  $('qchoices').innerHTML = q.choices.map((c, k) => c ? `<div class="opt c${k}">${'ABCD'[k]} · ${esc(c)}</div>` : '').join('');
+  $('qans').textContent = '';
+  show('h-q');
+
+  const end = Date.now() + q.duration * 1000;
+  tick = setInterval(() => {
+    const s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+    $('qtimer').textContent = s;
+    if (s === 0) { clearInterval(tick); setTimeout(reveal, 1200); }   // let in-flight answers land
+  }, 250);
+  poll = setInterval(async () => {
+    const { data } = await host('host_stats', { p_idx: i });
+    if (!data) return;
+    $('qans').textContent = `${data.answered}/${data.players} answered`;
+    if (data.players > 0 && data.answered >= data.players) reveal();
+  }, 1000);
+}
+$('revealBtn').onclick = () => reveal();
+
+// ---------- 4. Reveal ----------
+async function reveal() {
+  if (revealing) return; revealing = true;
+  stopTimers();
+  const i = G.qi, q = G.questions[i];
+  await host('set_phase', { p_phase: 'reveal', p_q: i });
+  const { data, error } = await host('host_reveal', { p_idx: i });
+  if (error) { revealing = false; return alert(error.message); }
+
+  const board = data.board.map(r => [r.nickname, r.score, r.last]);
+  await send({ type: 'reveal', idx: i, correct: data.correct, board });
+
+  const total = Object.values(data.dist).reduce((a, b) => a + b, 0) || 1;
+  $('rprompt').textContent = q.prompt;
+  $('bars').innerHTML = q.choices.map((c, k) => !c ? '' : `
+    <div class="bar ${k === data.correct ? 'right' : ''}">
+      <span class="lab c${k}">${'ABCD'[k]}</span>
+      <div class="track"><div class="fill c${k}" style="width:${(data.dist[k] || 0) / total * 100}%"></div></div>
+      <b>${data.dist[k] || 0}${k === data.correct ? ' ✓' : ''}</b>
+    </div>`).join('');
+  $('top').innerHTML = board.slice(0, 5).map(r => `<li>${esc(r[0])} <b>${r[1]}</b></li>`).join('');
+  $('nextBtn').textContent = i + 1 < G.questions.length ? 'Next question' : 'Show final results';
+  show('h-reveal');
+}
+$('nextBtn').onclick = () => G.qi + 1 < G.questions.length ? askQuestion(G.qi + 1) : finish();
+
+// ---------- 5. End ----------
+async function finish() {
+  await host('set_phase', { p_phase: 'ended', p_q: G.qi });
+  const { data } = await host('host_reveal', { p_idx: G.qi });
+  const board = data.board.map(r => [r.nickname, r.score, r.last]);
+  await send({ type: 'ended', board });
+  $('podium').innerHTML = board.slice(0, 10).map(r => `<li>${esc(r[0])} <b>${r[1]}</b></li>`).join('');
+  $('endPin').textContent = G.pin;
+  $('endToken').textContent = G.host_token;
+  show('h-end');
+}
+
+$('csvBtn').onclick = async () => {
+  const { data, error } = await db.rpc('get_results', { p_pin: G.pin, p_token: G.host_token });
+  if (error) return alert(error.message);
+  const cols = ['nickname', 'question', 'prompt', 'choice', 'correct', 'is_correct', 'elapsed_ms', 'points'];
+  const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [cols.join(','), ...data.map(r => cols.map(c => cell(r[c])).join(','))].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));   // BOM keeps Thai text readable in Excel
+  a.download = `quiz-${G.pin}.csv`;
+  a.click();
+};
+$('newBtn').onclick = () => { localStorage.removeItem('quiz-host'); location.reload(); };
+</script>
+</body>
+</html>

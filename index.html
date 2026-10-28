@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Join the quiz</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root { --ink:#172036; --bg:#F4F6FB; --a:#E4572E; --b:#2E6FDE; --c:#D99A00; --d:#159A7A; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100dvh; display:flex; flex-direction:column;
+         font:16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+  main { flex:1; display:flex; flex-direction:column; justify-content:center;
+         width:100%; max-width:520px; margin:0 auto; padding:20px; }
+  .hide { display:none !important; }
+  .stack > * + * { margin-top:12px; }
+  input, button { width:100%; font:inherit; padding:14px 16px; border-radius:12px; border:2px solid var(--ink); }
+  input { background:#fff; }
+  button { background:var(--ink); color:#fff; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.45; cursor:default; }
+  button:focus-visible, input:focus-visible { outline:3px solid #7B5CFF; outline-offset:2px; }
+  .big { font-size:2rem; font-weight:800; text-align:center; line-height:1.15; }
+  .muted { opacity:.7; text-align:center; }
+  .err { color:#B00020; text-align:center; min-height:1.4em; }
+  .timer { font-size:1.6rem; font-weight:800; text-align:center; font-variant-numeric:tabular-nums; }
+  .prompt { font-weight:700; text-align:center; font-size:1.1rem; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .grid button { min-height:120px; border:none; font-size:1.05rem; text-align:left; }
+  .c0 { background:var(--a); } .c1 { background:var(--b); } .c2 { background:var(--c); } .c3 { background:var(--d); }
+  .card { padding:28px 20px; border-radius:18px; text-align:center; color:#fff; }
+  .ok { background:#159A7A; } .bad { background:#C0392B; }
+</style>
+</head>
+<body>
+<main>
+  <section id="s-join" class="stack">
+    <div class="big">Join the quiz</div>
+    <input id="pin" inputmode="numeric" maxlength="6" placeholder="Game PIN" autocomplete="off" aria-label="Game PIN">
+    <input id="nick" maxlength="20" placeholder="Nickname" autocomplete="off" aria-label="Nickname">
+    <button id="joinBtn">Join</button>
+    <div id="joinErr" class="err" role="alert"></div>
+  </section>
+
+  <section id="s-wait" class="hide stack">
+    <div class="big" id="hello"></div>
+    <p class="muted">You're in. Watch the big screen.</p>
+  </section>
+
+  <section id="s-q" class="hide">
+    <div class="timer" id="timer" aria-live="off"></div>
+    <p class="prompt" id="prompt"></p>
+    <div class="grid" id="choices"></div>
+  </section>
+
+  <section id="s-locked" class="hide stack">
+    <div class="big">Answer locked in</div>
+    <p class="muted" id="lockedMsg">Wait for the reveal.</p>
+  </section>
+
+  <section id="s-result" class="hide">
+    <div id="resultCard" class="card">
+      <div class="big" id="resultTitle"></div>
+      <p id="resultPts"></p>
+      <p id="resultRank"></p>
+    </div>
+  </section>
+
+  <section id="s-end" class="hide stack">
+    <div class="big">Game over</div>
+    <div class="big" id="finalRank"></div>
+    <p class="muted" id="finalScore">Check the big screen for the podium.</p>
+  </section>
+</main>
+
+<script>
+const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+const SCREENS = ['s-join', 's-wait', 's-q', 's-locked', 's-result', 's-end'];
+const show = id => SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+
+let me = null;          // { player_id, game_id, pin, nick }
+let tick = null;
+let answeredIdx = -1;
+
+const urlPin = new URLSearchParams(location.search).get('pin') || '';
+$('pin').value = urlPin;
+
+// Resume after an accidental refresh
+try {
+  const saved = JSON.parse(localStorage.getItem('quiz-me'));
+  if (saved && (!urlPin || saved.pin === urlPin)) { me = saved; start(); }
+} catch (e) {}
+
+$('joinBtn').onclick = async () => {
+  const pin = $('pin').value.trim(), nick = $('nick').value.trim();
+  if (!/^\d{6}$/.test(pin)) return void ($('joinErr').textContent = 'Enter the 6-digit PIN from the big screen.');
+  if (!nick) return void ($('joinErr').textContent = 'Pick a nickname.');
+  $('joinBtn').disabled = true; $('joinErr').textContent = '';
+  const { data, error } = await db.rpc('join_game', { p_pin: pin, p_nick: nick });
+  $('joinBtn').disabled = false;
+  if (error) return void ($('joinErr').textContent = error.message);
+  me = { ...data, pin, nick };
+  try { localStorage.setItem('quiz-me', JSON.stringify(me)); } catch (e) {}
+  start();
+};
+
+function start() {
+  $('hello').textContent = 'Hi, ' + me.nick;
+  show('s-wait');
+  db.channel('quiz-' + me.pin, { config: { broadcast: { self: false } } })
+    .on('broadcast', { event: 'state' }, ({ payload }) => handle(payload))
+    .subscribe(status => { if (status === 'SUBSCRIBED') resync(); });
+}
+
+// Every (re)connect: read the current state from the database,
+// so a phone that dropped off Wi-Fi catches up on its own.
+async function resync() {
+  const { data: g } = await db.from('games')
+    .select('phase,current_q,q_started_at').eq('id', me.game_id).single();
+  if (!g) return;
+  if (g.phase === 'question') {
+    const { data: q } = await db.from('questions')
+      .select('idx,prompt,choices,duration_s').eq('game_id', me.game_id).eq('idx', g.current_q).single();
+    if (!q) return;
+    const elapsed = (Date.now() - new Date(g.q_started_at).getTime()) / 1000;
+    handle({ type: 'question', idx: q.idx, prompt: q.prompt, choices: q.choices,
+             duration: Math.max(0, Math.min(q.duration_s, q.duration_s - elapsed)) });
+  } else if (g.phase === 'ended') {
+    show('s-end');
+  }
+}
+
+function handle(m) {
+  clearInterval(tick);
+  if (m.type === 'question') {
+    if (answeredIdx === m.idx) return show('s-locked');
+    $('lockedMsg').textContent = 'Wait for the reveal.';
+    $('prompt').textContent = m.prompt;
+    $('choices').innerHTML = '';
+    m.choices.forEach((text, i) => {
+      if (!text) return;
+      const b = document.createElement('button');
+      b.className = 'c' + i;
+      b.textContent = 'ABCD'[i] + ' · ' + text;
+      b.onclick = () => answer(m.idx, i);
+      $('choices').appendChild(b);
+    });
+    const end = Date.now() + m.duration * 1000;
+    const draw = () => {
+      const s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      $('timer').textContent = s + 's';
+      if (s === 0) { clearInterval(tick); $('choices').querySelectorAll('button').forEach(b => b.disabled = true); }
+    };
+    draw(); tick = setInterval(draw, 250);
+    show('s-q');
+  }
+  else if (m.type === 'reveal') {
+    const rank = m.board.findIndex(r => r[0] === me.nick);   // board rows: [nickname, total, points this round]
+    const row = m.board[rank];
+    const got = row && row[2] > 0;
+    $('resultCard').className = 'card ' + (got ? 'ok' : 'bad');
+    $('resultTitle').textContent = got ? 'Correct!' : (answeredIdx === m.idx ? 'Not this time' : 'No answer');
+    $('resultPts').textContent = got ? '+' + row[2] + ' points' : '';
+    $('resultRank').textContent = row ? `${row[1]} points · #${rank + 1} of ${m.board.length}` : '';
+    show('s-result');
+  }
+  else if (m.type === 'ended') {
+    const rank = m.board.findIndex(r => r[0] === me.nick);
+    $('finalRank').textContent = rank >= 0 ? '#' + (rank + 1) : '';
+    if (rank >= 0) $('finalScore').textContent = m.board[rank][1] + ' points';
+    try { localStorage.removeItem('quiz-me'); } catch (e) {}
+    show('s-end');
+  }
+}
+
+async function answer(idx, choice) {
+  answeredIdx = idx;
+  clearInterval(tick);
+  show('s-locked');
+  const { data, error } = await db.rpc('submit_answer', { p_player: me.player_id, p_idx: idx, p_choice: choice });
+  if (error) $('lockedMsg').textContent = error.message;
+  else if (data && !data.accepted) $('lockedMsg').textContent = data.reason;
+}
+</script>
+</body>
+</html>

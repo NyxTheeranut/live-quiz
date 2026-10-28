@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quiz load test</title>
+<title>บอททดสอบ 100 คน</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
@@ -13,20 +13,20 @@
 </style>
 </head>
 <body>
-<h1>Rehearsal bots</h1>
-<p>Create a game on host.html, then launch bots here. Each bot is a real player: it joins, listens for questions and answers at a random moment.</p>
-<label>PIN <input id="pin" inputmode="numeric" maxlength="6"></label><br>
-<label>Bots in this tab <input id="n" type="number" value="25" min="1" max="100"></label><br>
-<label>Name prefix <input id="prefix" value="botA"></label><br>
-<button id="go">Launch bots</button>
-<pre id="log">Idle.</pre>
+<h1>บอททดสอบ</h1>
+<p>สร้างเกมที่ host.html ก่อน แล้วกดปล่อยบอทที่นี่ บอทแต่ละตัวเป็นผู้เล่นจริง: เข้าห้อง ฟังคำถาม แล้วตอบหรือโหวตในเวลาสุ่ม (โหมดโหวตจะเอียงไปทางผู้เข้าชิงต้นรายการ เพื่อให้กราฟสดมีอันดับสู้กัน)</p>
+<label>รหัสเกม (PIN) <input id="pin" inputmode="numeric" maxlength="6"></label><br>
+<label>จำนวนบอทในแท็บนี้ <input id="n" type="number" value="25" min="1" max="100"></label><br>
+<label>คำนำหน้าชื่อ <input id="prefix" value="botA"></label><br>
+<button id="go">ปล่อยบอท</button>
+<pre id="log">ยังไม่เริ่ม</pre>
 <script>
 const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
 const stats = { joined: 0, subscribed: 0, messages: 0, answered: 0, rejected: 0, errors: [] };
 const draw = () => document.getElementById('log').textContent =
-  `joined      ${stats.joined}\nsubscribed  ${stats.subscribed}\nmessages in ${stats.messages}\n` +
-  `answers ok  ${stats.answered}\nrejected    ${stats.rejected}\n` +
-  (stats.errors.length ? '\nlast errors:\n' + stats.errors.slice(-5).join('\n') : '');
+  `เข้าห้องแล้ว   ${stats.joined}\nต่อสัญญาณแล้ว ${stats.subscribed}\nข้อความที่รับ ${stats.messages}\n` +
+  `ตอบสำเร็จ     ${stats.answered}\nถูกปฏิเสธ      ${stats.rejected}\n` +
+  (stats.errors.length ? '\nข้อผิดพลาดล่าสุด:\n' + stats.errors.slice(-5).join('\n') : '');
 
 document.getElementById('go').onclick = async () => {
   const pin = document.getElementById('pin').value.trim();
@@ -45,8 +45,10 @@ document.getElementById('go').onclick = async () => {
         stats.messages++;
         if (m.type !== 'question') return;
         const options = m.choices.map((c, k) => c ? k : -1).filter(k => k >= 0);
-        const pick = options[Math.floor(Math.random() * options.length)];
-        const wait = 500 + Math.random() * Math.max(0, m.duration - 2) * 1000;
+        const pick = m.kind === 'vote'
+          ? options[Math.floor(Math.random() ** 2.2 * options.length)]   // เอียงไปต้นรายการ
+          : options[Math.floor(Math.random() * options.length)];
+        const wait = 500 + Math.random() * Math.max(0, Math.min(m.duration, 40) - 2) * 1000;
         setTimeout(async () => {
           const r = await db.rpc('submit_answer', { p_player: data.player_id, p_idx: m.idx, p_choice: pick });
           if (r.error) { stats.rejected++; stats.errors.push(r.error.message); } else stats.answered++;

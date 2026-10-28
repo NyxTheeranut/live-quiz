@@ -1,10 +1,36 @@
 /**
- * Live quiz → Google Sheets results export.
- * Paste into: your results spreadsheet → Extensions → Apps Script → Code.gs
- * Fill in the two constants, save, reload the spreadsheet, then use the "Quiz" menu.
+ * Live quiz / vote: Google Sheets side.
+ * Paste into: your spreadsheet > Extensions > Apps Script > Code.gs
+ * Fill in the three constants, save, reload the spreadsheet.
+ *
+ * Two jobs:
+ *  1. doGet: serves the "Awards" and "Nominees" (and optional "Quiz") tabs as JSON,
+ *     so host.html can load them with one button instead of copy-paste.
+ *     Deploy > Manage deployments > Edit > New version  (keeps the same /exec link).
+ *     Execute as: Me. Who has access: Anyone. The ACCESS_CODE below is the lock.
+ *  2. The "Quiz" menu: pulls the results of a finished game back into the sheet.
+ *
+ * Sheet tabs (row 1 is a header and is skipped):
+ *   Awards    A: award name   B: definition   C: seconds to vote (optional)
+ *   Nominees  A: name         B: group (team / department)
+ *   Quiz      A: question  B..E: choices  F: correct (A-D or ก-ง)  G: seconds   (quiz mode only)
  */
 const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_XXXXXXXXXXXXXXXXXXXXXXXX'; // same key as config.js
+const ACCESS_CODE  = 'CHANGE-ME';                                // typed into host.html; keeps strangers out
+
+function doGet(e) {
+  const out = o => ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+  if (!e || !e.parameter || e.parameter.code !== ACCESS_CODE) return out({ error: 'wrong or missing code' });
+  const ss = SpreadsheetApp.getActive();
+  const tab = (name, width) => {
+    const sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return [];
+    return sh.getRange(2, 1, sh.getLastRow() - 1, width).getDisplayValues()
+      .filter(r => String(r[0]).trim() !== '');
+  };
+  return out({ awards: tab('Awards', 3), nominees: tab('Nominees', 2), quiz: tab('Quiz', 7) });
+}
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -37,21 +63,20 @@ function pullResults() {
   const cols = ['nickname', 'question', 'prompt', 'choice', 'correct', 'is_correct', 'elapsed_ms', 'points'];
   const ss = SpreadsheetApp.getActive();
 
-  // Sheet 1: every answer
+  // Sheet 1: every answer / vote
   const raw = ss.getSheetByName('Game ' + pin) || ss.insertSheet('Game ' + pin);
   raw.clear();
   raw.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold');
-  if (rows.length) raw.getRange(2, 1, rows.length, cols.length).setValues(rows.map(r => cols.map(c => c === 'is_correct' ? (r[c] ? 1 : 0) : r[c])));
+  if (rows.length) raw.getRange(2, 1, rows.length, cols.length).setValues(rows.map(r => cols.map(c => c === 'is_correct' ? (r[c] === null ? '' : (r[c] ? 1 : 0)) : (r[c] === null ? '' : r[c]))));
   raw.setFrozenRows(1);
 
-  // Sheet 2: leaderboard, built with a formula so it stays live if you edit the raw sheet
+  // Sheet 2: votes per award and nominee (vote games), built with a formula so it stays live
   const board = ss.getSheetByName('Board ' + pin) || ss.insertSheet('Board ' + pin);
   board.clear();
   board.getRange('A1').setFormula(
-    `=QUERY('Game ${pin}'!A:H, "select A, sum(H), count(B), avg(F) ` +
-    `where A is not null group by A order by sum(H) desc ` +
-    `label sum(H) 'total points', count(B) 'answered', avg(F) 'accuracy'", 1)`
+    `=QUERY('Game ${pin}'!A:H, "select C, D, count(A) where A is not null group by C, D order by C, count(A) desc ` +
+    `label C 'award', D 'nominee', count(A) 'votes'", 1)`
   );
 
-  ui.alert(`Imported ${rows.length} answers into "Game ${pin}" and "Board ${pin}".`);
+  ui.alert(`Imported ${rows.length} rows into "Game ${pin}" and "Board ${pin}".`);
 }

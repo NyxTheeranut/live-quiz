@@ -1,284 +1,211 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Host the quiz</title>
+<title>จัดเกม | โหวตและควิซสด</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="host.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<style>
-  :root { --ink:#172036; --bg:#F4F6FB; --line:#D6DCE8; --a:#E4572E; --b:#2E6FDE; --c:#D99A00; --d:#159A7A; }
-  * { box-sizing:border-box; }
-  body { margin:0; font:18px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
-  main { max-width:1100px; margin:0 auto; padding:32px 24px 64px; }
-  .hide { display:none !important; }
-  h1 { font-size:2.2rem; margin:0 0 16px; } h2 { font-size:2rem; margin:12px 0 20px; }
-  label { display:block; font-weight:600; margin-top:16px; }
-  input, textarea { width:100%; font:inherit; font-size:16px; padding:12px; border:2px solid var(--line); border-radius:10px; margin-top:6px; background:#fff; }
-  textarea { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:14px; }
-  button { font:inherit; font-weight:700; padding:14px 26px; border:none; border-radius:12px; background:var(--ink); color:#fff; cursor:pointer; margin-top:20px; }
-  button.ghost { background:transparent; color:var(--ink); border:2px solid var(--ink); }
-  button:focus-visible, input:focus-visible, textarea:focus-visible { outline:3px solid #7B5CFF; outline-offset:2px; }
-  .err { color:#B00020; min-height:1.4em; }
-  .muted { opacity:.7; }
-  .joinline { font-size:1.4rem; }
-  .pin { font-size:clamp(4rem, 14vw, 9rem); font-weight:900; letter-spacing:.08em; font-variant-numeric:tabular-nums; line-height:1; margin:12px 0; }
-  .names { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
-  .names span { background:#fff; border:2px solid var(--line); padding:6px 12px; border-radius:999px; font-weight:600; }
-  .qhead { display:flex; justify-content:space-between; align-items:center; font-weight:700; gap:16px; }
-  .timer { font-size:3rem; font-weight:900; font-variant-numeric:tabular-nums; }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .opt { color:#fff; padding:28px 22px; border-radius:16px; font-size:1.4rem; font-weight:700; }
-  .c0 { background:var(--a); } .c1 { background:var(--b); } .c2 { background:var(--c); } .c3 { background:var(--d); }
-  .bar { display:grid; grid-template-columns:44px 1fr 60px; align-items:center; gap:12px; margin:10px 0; opacity:.45; }
-  .bar.right { opacity:1; }
-  .bar .lab { color:#fff; border-radius:8px; text-align:center; font-weight:800; padding:6px 0; }
-  .track { background:#fff; border:2px solid var(--line); border-radius:10px; height:38px; overflow:hidden; }
-  .fill { height:100%; transition:width .6s ease; }
-  ol.board { padding-left:1.4em; font-size:1.3rem; } ol.board li { padding:6px 0; border-bottom:1px solid var(--line); }
-  ol.board b { float:right; font-variant-numeric:tabular-nums; }
-  code { background:#fff; border:1px solid var(--line); padding:2px 6px; border-radius:6px; word-break:break-all; }
-  @media (prefers-reduced-motion: reduce) { .fill { transition:none; } }
-</style>
 </head>
 <body>
-<main>
+<canvas id="confetti" aria-hidden="true"></canvas>
+<div id="tbar" class="tbar hide" aria-hidden="true"><i></i></div>
+<button id="muteBtn" class="iconbtn mute" type="button" aria-label="เปิดหรือปิดเสียงเอฟเฟกต์" aria-pressed="false"><i class="ph-bold ph-speaker-high" aria-hidden="true"></i></button>
 
-  <!-- 1. Setup -->
-  <section id="h-setup">
-    <h1>Host a quiz</h1>
-    <div id="resumeBox" class="hide">
-      <p>You have a game in progress (PIN <b id="resumePin"></b>).</p>
-      <button id="resumeBtn">Resume that game</button>
-      <button id="discardBtn" class="ghost">Start fresh</button>
+<!-- นับถอยหลังก่อนเปิดรางวัลแต่ละข้อ -->
+<div id="cd" class="cd hide" role="status" aria-live="polite">
+  <div class="cd-label" id="cdLabel"></div>
+  <div class="cd-title" id="cdTitle"></div>
+  <div class="cd-num" id="cdNum">3</div>
+</div>
+
+<!-- 1. สตูดิโอสร้างเกม -->
+<section id="h-setup">
+  <header class="studiobar">
+    <div class="brand"><i class="ph-fill ph-confetti" aria-hidden="true"></i><span>สตูดิโอสร้างเกม</span></div>
+    <div class="seg" role="radiogroup" aria-label="รูปแบบเกม">
+      <label><input type="radio" name="kind" value="vote" checked><span><i class="ph-bold ph-crown-simple" aria-hidden="true"></i>โหวตรางวัล</span></label>
+      <label><input type="radio" name="kind" value="quiz"><span><i class="ph-bold ph-lightning" aria-hidden="true"></i>ควิซ</span></label>
     </div>
-    <label>Title <input id="title" value="Friday quiz"></label>
-    <label>Questions — copy the rows from your Google Sheet and paste here
-      <span class="muted">(prompt · A · B · C · D · correct letter · seconds)</span>
-      <textarea id="qs" rows="10">prompt	A	B	C	D	correct	seconds
-What is the capital of Thailand?	Bangkok	Chiang Mai	Phuket	Khon Kaen	A	15
-How many minutes are in 2 hours?	60	90	120	240	C	15
-Which planet is closest to the Sun?	Venus	Mercury	Mars	Earth	B	20</textarea>
-    </label>
-    <button id="createBtn">Create game</button>
+    <div class="bar-actions">
+      <details class="menu" id="importMenu">
+        <summary class="btn ghost small"><i class="ph-bold ph-upload-simple" aria-hidden="true"></i>นำเข้า / ส่งออก</summary>
+        <div class="menupanel">
+          <button type="button" id="btnSample"><i class="ph-bold ph-sparkle" aria-hidden="true"></i>ใส่ตัวอย่างให้ดู</button>
+          <button type="button" id="btnPaste"><i class="ph-bold ph-table" aria-hidden="true"></i>วางจาก Google Sheets หรือ Excel</button>
+          <button type="button" id="btnSheet"><i class="ph-bold ph-cloud-arrow-down" aria-hidden="true"></i>โหลดจากลิงก์ชีต</button>
+          <button type="button" id="btnExport"><i class="ph-bold ph-download-simple" aria-hidden="true"></i>บันทึกเป็นไฟล์</button>
+          <button type="button" id="btnImport"><i class="ph-bold ph-file-arrow-up" aria-hidden="true"></i>เปิดไฟล์ที่บันทึกไว้</button>
+          <button type="button" id="btnClear" class="danger"><i class="ph-bold ph-broom" aria-hidden="true"></i>ล้างทั้งหมด</button>
+        </div>
+      </details>
+      <button class="btn" id="createBtn"><i class="ph-fill ph-play" aria-hidden="true"></i>สร้างเกม</button>
+    </div>
+  </header>
+
+  <main class="studio">
+    <div id="resumeBox" class="card resume hide">
+      <p>มีเกมค้างอยู่ (รหัส <b id="resumePin"></b>)</p>
+      <div class="row">
+        <button class="btn small" id="resumeBtn">เล่นเกมนั้นต่อ</button>
+        <button class="btn ghost small" id="discardBtn">ทิ้งเกมนั้น</button>
+      </div>
+    </div>
+
+    <div class="titlefield">
+      <label for="title">ชื่อกิจกรรม</label>
+      <input type="text" id="title" maxlength="60">
+    </div>
     <p id="setupErr" class="err" role="alert"></p>
-  </section>
 
-  <!-- 2. Lobby -->
-  <section id="h-lobby" class="hide">
-    <p class="joinline">Go to <b id="joinUrl"></b> and enter</p>
-    <div class="pin" id="pinBig"></div>
-    <p id="count" class="muted">0 players</p>
-    <div id="names" class="names"></div>
-    <button id="startBtn">Start the quiz</button>
-  </section>
+    <div id="voteStudio" class="cols">
+      <div>
+        <div class="sechead"><h2>รางวัล</h2><span class="chip num" id="awardCount"></span></div>
+        <div id="awardList" class="list"></div>
+        <button type="button" id="addAward" class="addcard"><i class="ph-bold ph-plus" aria-hidden="true"></i>เพิ่มรางวัล</button>
+      </div>
+      <aside class="npanel">
+        <div class="sechead"><h2>ผู้เข้าชิง</h2><span class="chip num" id="nTotal"></span></div>
+        <p class="hint">ใช้กับทุกรางวัล แบ่งกลุ่มไว้ให้เพื่อนค้นหาและโหวตง่ายบนมือถือ</p>
+        <div id="groupList" class="list"></div>
+        <button type="button" id="addGroup" class="addcard"><i class="ph-bold ph-plus" aria-hidden="true"></i>เพิ่มกลุ่ม</button>
+      </aside>
+    </div>
 
-  <!-- 3. Question open -->
-  <section id="h-q" class="hide">
-    <div class="qhead"><span id="qnum"></span><span id="qtimer" class="timer"></span><span id="qans"></span></div>
-    <h2 id="qprompt"></h2>
-    <div class="grid" id="qchoices"></div>
-    <button id="revealBtn" class="ghost">Reveal now</button>
-  </section>
+    <div id="quizStudio" class="hide">
+      <div class="sechead"><h2>คำถาม</h2><span class="chip num" id="quizCount"></span></div>
+      <div id="quizList" class="list"></div>
+      <button type="button" id="addQuiz" class="addcard"><i class="ph-bold ph-plus" aria-hidden="true"></i>เพิ่มคำถาม</button>
+    </div>
+  </main>
+</section>
 
-  <!-- 4. Reveal + leaderboard -->
-  <section id="h-reveal" class="hide">
-    <h2 id="rprompt"></h2>
-    <div id="bars"></div>
-    <h3>Top 5</h3>
-    <ol id="top" class="board"></ol>
-    <button id="nextBtn">Next question</button>
-  </section>
+<!-- 2. ล็อบบี้ -->
+<section id="h-lobby" class="hide lobby">
+  <div class="lobby-top">
+    <div class="joincard pop">
+      <div class="jl">ใช้มือถือเข้าที่ <b id="joinUrl"></b></div>
+      <div class="jl2">แล้วใส่รหัสเกม</div>
+      <div class="pin" id="pinBig"></div>
+    </div>
+    <div class="lobby-side">
+      <div class="lobby-title" id="lobbyTitle"></div>
+      <div class="count"><b id="countNum" class="num">0</b><span id="count" role="status">ยังไม่มีผู้เล่น</span></div>
+      <button class="btn big" id="startBtn"></button>
+    </div>
+  </div>
+  <div id="names" class="bubbles"></div>
+</section>
 
-  <!-- 5. End -->
-  <section id="h-end" class="hide">
-    <h1>Final results</h1>
-    <ol id="podium" class="board"></ol>
-    <button id="csvBtn">Download results (CSV)</button>
-    <button id="newBtn" class="ghost">New game</button>
-    <p class="muted">For the Google Sheets export: PIN <code id="endPin"></code> host token <code id="endToken"></code></p>
-  </section>
+<!-- 3. กำลังถาม / กำลังโหวต -->
+<section id="h-q" class="hide qscreen">
+  <div class="qtop">
+    <span class="chip" id="qnum"></span>
+    <span id="qans" class="chip num" role="status"></span>
+    <span id="qtimer" class="timer num"></span>
+  </div>
+  <h2 id="qprompt" class="qtitle"></h2>
+  <p id="qnote" class="award-note"></p>
+  <div class="progress" aria-hidden="true"><i id="qbar"></i></div>
 
-</main>
+  <div id="voteLive">
+    <div class="tools">
+      <div class="seg" role="radiogroup" aria-label="มุมมองคะแนน">
+        <label><input type="radio" name="view" value="person" checked><span>รายคน</span></label>
+        <label><input type="radio" name="view" value="group"><span>รายกลุ่ม</span></label>
+      </div>
+      <button class="btn" id="closeBtn"><i class="ph-fill ph-trophy" aria-hidden="true"></i>ปิดโหวตและประกาศผล</button>
+    </div>
+    <div id="chart" class="chart"></div>
+    <div id="chartEmpty" class="empty"><i class="ph-bold ph-hand-pointing bob" aria-hidden="true"></i>รอคะแนนแรกอยู่นะ...</div>
+  </div>
 
-<script>
-const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const $ = id => document.getElementById(id);
-const SCREENS = ['h-setup', 'h-lobby', 'h-q', 'h-reveal', 'h-end'];
-const show = id => SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  <div id="quizLive" class="hide">
+    <div id="qchoices" class="tiles"></div>
+    <div class="row"><button id="revealBtn" class="btn ghost">เฉลยเลย</button></div>
+  </div>
+</section>
 
-let G = null;            // { game_id, pin, host_token, title, questions, qi }
-let channel = null, poll = null, tick = null, revealing = false;
+<!-- 4. ประกาศผล -->
+<section id="h-reveal" class="hide">
+  <h2 id="rprompt" class="rtitle"></h2>
+  <div id="voteResult">
+    <div id="drum" class="drum">กำลังเปิดซอง...</div>
+    <div id="stage" class="stage pending">
+      <i class="ph-fill ph-crown-simple crown" aria-hidden="true"></i>
+      <div id="winner" class="winner" aria-live="polite"></div>
+      <div id="winnerSub" class="sub"></div>
+    </div>
+    <div id="pod" class="pod" aria-label="อันดับ 1 ถึง 3"></div>
+    <ol id="runners" class="board"></ol>
+  </div>
+  <div id="quizResult" class="hide">
+    <div id="bars" class="qbars"></div>
+    <div id="qpod" class="pod" aria-label="ผู้นำคะแนน"></div>
+  </div>
+  <div class="row"><button class="btn big" id="nextBtn"></button></div>
+</section>
 
-const save = () => { try { localStorage.setItem('quiz-host', JSON.stringify(G)); } catch (e) {} };
-const stopTimers = () => { clearInterval(poll); clearInterval(tick); };
-const host = (fn, args) => db.rpc(fn, { p_game: G.game_id, p_token: G.host_token, ...args });
+<!-- 5. จบเกม -->
+<section id="h-end" class="hide endscreen">
+  <h1 id="endTitle"></h1>
+  <ol id="podium" class="hall"></ol>
+  <div class="row">
+    <button class="btn" id="csvBtn"><i class="ph-bold ph-download-simple" aria-hidden="true"></i>ดาวน์โหลดผล (CSV)</button>
+    <button class="btn ghost" id="newBtn">เริ่มเกมใหม่</button>
+  </div>
+  <p class="hint" style="margin-top:20px">สำหรับดึงผลเข้า Google Sheets: รหัสเกม <code id="endPin"></code> โทเคนเจ้าของเกม <code id="endToken"></code></p>
+</section>
 
-// ---------- Parse rows pasted from Google Sheets (tab-separated) or CSV ----------
-function parseRows(text) {
-  const delim = text.includes('\t') ? '\t' : ',';
-  const rows = []; let row = [], cell = '', quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quoted) {
-      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
-      else if (ch === '"') quoted = false;
-      else cell += ch;
-    } else if (ch === '"' && cell === '') quoted = true;
-    else if (ch === delim) { row.push(cell); cell = ''; }
-    else if (ch === '\n' || ch === '\r') {
-      if (ch === '\r' && text[i + 1] === '\n') i++;
-      row.push(cell); rows.push(row); row = []; cell = '';
-    } else cell += ch;
-  }
-  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
-  return rows;
-}
+<!-- กล่องโต้ตอบ -->
+<dialog id="pasteDlg">
+  <form method="dialog" class="dlg">
+    <h3>วางจาก Google Sheets หรือ Excel</h3>
+    <p class="hint">เลือกเซลล์ในชีต คัดลอก แล้ววางในช่องด้านล่าง ข้ามแถวหัวตารางได้เอง</p>
+    <div id="pasteVote">
+      <label for="pasteAwards">รางวัล: ชื่อรางวัล, คำจำกัดความ, วินาที</label>
+      <textarea id="pasteAwards" rows="6"></textarea>
+      <label for="pasteNominees">ผู้เข้าชิง: ชื่อ, กลุ่ม</label>
+      <textarea id="pasteNominees" rows="6"></textarea>
+    </div>
+    <div id="pasteQuiz" class="hide">
+      <label for="pasteQs">คำถาม: คำถาม, ตัวเลือก ก ข ค ง, ข้อที่ถูก (ก ข ค ง), วินาที</label>
+      <textarea id="pasteQs" rows="10"></textarea>
+    </div>
+    <p id="pasteMsg" class="err" role="alert"></p>
+    <div class="row">
+      <button class="btn" id="pasteGo" value="ok">นำเข้า (แทนที่ของเดิม)</button>
+      <button class="btn ghost" value="cancel">ยกเลิก</button>
+    </div>
+  </form>
+</dialog>
 
-function toQuestions(rows) {
-  return rows
-    .filter(r => r.length >= 6 && /^[ABCD]$/i.test((r[5] || '').trim()))   // skips the header row
-    .map(r => ({
-      prompt: r[0].trim(),
-      choices: [r[1], r[2], r[3], r[4]].map(s => (s || '').trim()),
-      correct: 'ABCD'.indexOf(r[5].trim().toUpperCase()),
-      duration: Math.min(120, Math.max(5, parseInt(r[6], 10) || 20))
-    }))
-    .filter(q => q.prompt && q.choices[q.correct]);
-}
+<dialog id="sheetDlg">
+  <form method="dialog" class="dlg">
+    <h3>โหลดจากลิงก์ชีต</h3>
+    <label for="sheetUrl">ลิงก์เว็บแอป (ลงท้ายด้วย /exec)</label>
+    <input type="url" id="sheetUrl" autocomplete="off" inputmode="url">
+    <label for="sheetCode">รหัสผ่านของชีต</label>
+    <input type="text" id="sheetCode" autocomplete="off">
+    <p class="hint">ลิงก์กับรหัสจะจำไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น ไม่ถูกเก็บในโค้ด</p>
+    <p id="sheetMsg" class="hint" role="status"></p>
+    <div class="row">
+      <button class="btn" id="loadSheetBtn" value="x">โหลดข้อมูล</button>
+      <button class="btn ghost" value="cancel">ปิด</button>
+    </div>
+  </form>
+</dialog>
+<input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-// ---------- Realtime channel: host broadcasts, phones listen ----------
-function openChannel() {
-  channel = db.channel('quiz-' + G.pin, { config: { broadcast: { self: false, ack: true } } });
-  channel.subscribe();
-}
-const send = payload => channel.send({ type: 'broadcast', event: 'state', payload });
-
-// ---------- 1. Setup ----------
-try {
-  const saved = JSON.parse(localStorage.getItem('quiz-host'));
-  if (saved && saved.pin) { $('resumePin').textContent = saved.pin; $('resumeBox').classList.remove('hide'); }
-} catch (e) {}
-
-$('resumeBtn').onclick = () => {
-  G = JSON.parse(localStorage.getItem('quiz-host'));
-  openChannel();
-  G.qi < 0 ? lobby() : setTimeout(reveal, 800);   // mid-game refresh: jump to that question's reveal
-};
-$('discardBtn').onclick = () => { localStorage.removeItem('quiz-host'); $('resumeBox').classList.add('hide'); };
-
-$('createBtn').onclick = async () => {
-  const questions = toQuestions(parseRows($('qs').value));
-  if (!questions.length) return void ($('setupErr').textContent =
-    'No valid rows found. Each row needs a prompt, up to four choices and a correct letter A–D.');
-  $('createBtn').disabled = true; $('setupErr').textContent = '';
-  const title = $('title').value.trim();
-  const { data, error } = await db.rpc('create_game', { p_title: title, p_questions: questions });
-  $('createBtn').disabled = false;
-  if (error) return void ($('setupErr').textContent = error.message);
-  G = { ...data, title, questions, qi: -1 };
-  save(); openChannel(); lobby();
-};
-
-// ---------- 2. Lobby ----------
-function lobby() {
-  const url = new URL('./', location.href);
-  $('joinUrl').textContent = url.host + url.pathname;
-  $('pinBig').textContent = G.pin;
-  show('h-lobby');
-  stopTimers();
-  const refresh = async () => {
-    const { data } = await db.from('players').select('nickname').eq('game_id', G.game_id).order('joined_at');
-    if (!data) return;
-    $('count').textContent = data.length + (data.length === 1 ? ' player' : ' players');
-    $('names').innerHTML = data.map(p => `<span>${esc(p.nickname)}</span>`).join('');
-  };
-  refresh(); poll = setInterval(refresh, 2000);
-}
-$('startBtn').onclick = () => askQuestion(0);
-
-// ---------- 3. Question ----------
-async function askQuestion(i) {
-  stopTimers(); revealing = false;
-  const q = G.questions[i];
-  const { error } = await host('set_phase', { p_phase: 'question', p_q: i });
-  if (error) return alert(error.message);
-  G.qi = i; save();
-  await send({ type: 'question', idx: i, prompt: q.prompt, choices: q.choices, duration: q.duration });
-
-  $('qnum').textContent = `Question ${i + 1} of ${G.questions.length}`;
-  $('qprompt').textContent = q.prompt;
-  $('qchoices').innerHTML = q.choices.map((c, k) => c ? `<div class="opt c${k}">${'ABCD'[k]} · ${esc(c)}</div>` : '').join('');
-  $('qans').textContent = '';
-  show('h-q');
-
-  const end = Date.now() + q.duration * 1000;
-  tick = setInterval(() => {
-    const s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-    $('qtimer').textContent = s;
-    if (s === 0) { clearInterval(tick); setTimeout(reveal, 1200); }   // let in-flight answers land
-  }, 250);
-  poll = setInterval(async () => {
-    const { data } = await host('host_stats', { p_idx: i });
-    if (!data) return;
-    $('qans').textContent = `${data.answered}/${data.players} answered`;
-    if (data.players > 0 && data.answered >= data.players) reveal();
-  }, 1000);
-}
-$('revealBtn').onclick = () => reveal();
-
-// ---------- 4. Reveal ----------
-async function reveal() {
-  if (revealing) return; revealing = true;
-  stopTimers();
-  const i = G.qi, q = G.questions[i];
-  await host('set_phase', { p_phase: 'reveal', p_q: i });
-  const { data, error } = await host('host_reveal', { p_idx: i });
-  if (error) { revealing = false; return alert(error.message); }
-
-  const board = data.board.map(r => [r.nickname, r.score, r.last]);
-  await send({ type: 'reveal', idx: i, correct: data.correct, board });
-
-  const total = Object.values(data.dist).reduce((a, b) => a + b, 0) || 1;
-  $('rprompt').textContent = q.prompt;
-  $('bars').innerHTML = q.choices.map((c, k) => !c ? '' : `
-    <div class="bar ${k === data.correct ? 'right' : ''}">
-      <span class="lab c${k}">${'ABCD'[k]}</span>
-      <div class="track"><div class="fill c${k}" style="width:${(data.dist[k] || 0) / total * 100}%"></div></div>
-      <b>${data.dist[k] || 0}${k === data.correct ? ' ✓' : ''}</b>
-    </div>`).join('');
-  $('top').innerHTML = board.slice(0, 5).map(r => `<li>${esc(r[0])} <b>${r[1]}</b></li>`).join('');
-  $('nextBtn').textContent = i + 1 < G.questions.length ? 'Next question' : 'Show final results';
-  show('h-reveal');
-}
-$('nextBtn').onclick = () => G.qi + 1 < G.questions.length ? askQuestion(G.qi + 1) : finish();
-
-// ---------- 5. End ----------
-async function finish() {
-  await host('set_phase', { p_phase: 'ended', p_q: G.qi });
-  const { data } = await host('host_reveal', { p_idx: G.qi });
-  const board = data.board.map(r => [r.nickname, r.score, r.last]);
-  await send({ type: 'ended', board });
-  $('podium').innerHTML = board.slice(0, 10).map(r => `<li>${esc(r[0])} <b>${r[1]}</b></li>`).join('');
-  $('endPin').textContent = G.pin;
-  $('endToken').textContent = G.host_token;
-  show('h-end');
-}
-
-$('csvBtn').onclick = async () => {
-  const { data, error } = await db.rpc('get_results', { p_pin: G.pin, p_token: G.host_token });
-  if (error) return alert(error.message);
-  const cols = ['nickname', 'question', 'prompt', 'choice', 'correct', 'is_correct', 'elapsed_ms', 'points'];
-  const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const csv = [cols.join(','), ...data.map(r => cols.map(c => cell(r[c])).join(','))].join('\r\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));   // BOM keeps Thai text readable in Excel
-  a.download = `quiz-${G.pin}.csv`;
-  a.click();
-};
-$('newBtn').onclick = () => { localStorage.removeItem('quiz-host'); location.reload(); };
-</script>
+<script src="fx.js"></script>
+<script src="studio.js"></script>
+<script src="host.js"></script>
 </body>
 </html>

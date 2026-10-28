@@ -1,75 +1,170 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Join the quiz</title>
+<title>เข้าร่วมเกม</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <style>
-  :root { --ink:#172036; --bg:#F4F6FB; --a:#E4572E; --b:#2E6FDE; --c:#D99A00; --d:#159A7A; }
-  * { box-sizing: border-box; }
-  body { margin:0; min-height:100dvh; display:flex; flex-direction:column;
-         font:16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
-  main { flex:1; display:flex; flex-direction:column; justify-content:center;
-         width:100%; max-width:520px; margin:0 auto; padding:20px; }
-  .hide { display:none !important; }
-  .stack > * + * { margin-top:12px; }
-  input, button { width:100%; font:inherit; padding:14px 16px; border-radius:12px; border:2px solid var(--ink); }
-  input { background:#fff; }
-  button { background:var(--ink); color:#fff; font-weight:700; cursor:pointer; }
-  button:disabled { opacity:.45; cursor:default; }
-  button:focus-visible, input:focus-visible { outline:3px solid #7B5CFF; outline-offset:2px; }
-  .big { font-size:2rem; font-weight:800; text-align:center; line-height:1.15; }
-  .muted { opacity:.7; text-align:center; }
-  .err { color:#B00020; text-align:center; min-height:1.4em; }
-  .timer { font-size:1.6rem; font-weight:800; text-align:center; font-variant-numeric:tabular-nums; }
-  .prompt { font-weight:700; text-align:center; font-size:1.1rem; }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
-  .grid button { min-height:120px; border:none; font-size:1.05rem; text-align:left; }
-  .c0 { background:var(--a); } .c1 { background:var(--b); } .c2 { background:var(--c); } .c3 { background:var(--d); }
-  .card { padding:28px 20px; border-radius:18px; text-align:center; color:#fff; }
-  .ok { background:#159A7A; } .bad { background:#C0392B; }
+  main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
+  section { flex: 1; display: flex; flex-direction: column; }
+  section.center { justify-content: center; }
+  .stack > * + * { margin-top: 12px; }
+  .big { font: 800 2rem/1.25 var(--font-display); text-align: center; overflow-wrap: break-word; }
+  .center-text { text-align: center; }
+  .timer { font: 800 1.2rem var(--font-display); font-variant-numeric: tabular-nums; color: var(--accent); }
+  .vhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .vhead h2 { font-size: 1.7rem; margin: 6px 0 4px; }
+
+  /* รายชื่อผู้เข้าชิง */
+  .search { position: relative; margin: 14px 0 10px; }
+  .search i { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .search input { padding-left: 50px; border-radius: var(--r-pill); }
+  .minibar { display: flex; gap: 8px; margin-bottom: 10px; }
+  .minibar button { flex: 1; min-height: 44px; border-radius: var(--r-pill); border: 2px solid var(--edge); background: transparent; color: var(--text); font: 600 .95rem var(--font-body); cursor: pointer; }
+  details.grp { background: var(--surface); border: 2px solid var(--line); border-radius: var(--r-card); margin-bottom: 10px; overflow: hidden; }
+  details.grp > summary { list-style: none; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 16px; cursor: pointer; font: 700 1.05rem var(--font-display); }
+  details.grp > summary::-webkit-details-marker { display: none; }
+  details.grp > summary .n { margin-left: auto; color: var(--muted); font: 600 .95rem var(--font-body); }
+  details.grp > summary .car { transition: transform .2s var(--ease); }
+  details.grp[open] > summary .car { transform: rotate(180deg); }
+  .items { display: grid; gap: 8px; padding: 0 12px 12px; }
+  .item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 16px; text-align: left; border-radius: var(--r-card); border: 2px solid var(--line); background: var(--surface-2); color: var(--text); font: 600 1.05rem/1.3 var(--font-body); cursor: pointer; touch-action: manipulation; transition: transform .15s var(--ease); }
+  .item:active { transform: scale(.98); }
+  .item .tick { margin-left: auto; opacity: 0; color: var(--on-accent); }
+  .item[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .item[aria-pressed=true] .tick { opacity: 1; }
+  .item:disabled { opacity: .5; cursor: default; }
+  .noresult { text-align: center; color: var(--muted); padding: 24px 0; }
+  .dock { position: sticky; bottom: 0; margin: 12px -16px 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(to top, var(--bg) 70%, transparent); }
+
+  /* ผลสด */
+  .live { margin-top: 18px; }
+  .live h3 { font-size: 1rem; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  .lrow { padding: 8px 0; }
+  .lrow .t { display: flex; justify-content: space-between; gap: 12px; font: 600 1.05rem var(--font-display); }
+  .lrow .t b { font-variant-numeric: tabular-nums; }
+  .lrow .b { height: 8px; border-radius: var(--r-pill); background: var(--surface-2); margin-top: 6px; overflow: hidden; }
+  .lrow .b i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-pill); transform-origin: left; transition: transform .5s var(--ease); }
+
+  /* ควิซ */
+  .prompt { font: 700 1.25rem/1.4 var(--font-display); text-align: center; margin: 12px 0 16px; }
+  .qgrid { display: grid; gap: 10px; }
+  .qgrid .item { min-height: 84px; font: 800 1.2rem/1.3 var(--font-display); background: var(--tint); border-color: transparent; color: var(--on-c); box-shadow: 0 5px 0 rgba(0, 0, 0, .28); animation: pop .4s var(--spring) both; }
+  .qgrid .item:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, .28); }
+  .qgrid .item i { font-size: 1.8rem; flex: none; }
+  .ready-num { font: 800 5rem/1 var(--font-display); color: var(--accent); animation: bob 1s ease-in-out infinite; }
+  .result { padding: 32px 20px; border-radius: var(--r-card); text-align: center; border: 2px solid var(--line); background: var(--surface); }
+  .result.good { border-color: var(--accent); }
+  .result .crownic { font-size: 3rem; color: var(--accent); }
 </style>
 </head>
 <body>
 <main>
-  <section id="s-join" class="stack">
-    <div class="big">Join the quiz</div>
-    <input id="pin" inputmode="numeric" maxlength="6" placeholder="Game PIN" autocomplete="off" aria-label="Game PIN">
-    <input id="nick" maxlength="20" placeholder="Nickname" autocomplete="off" aria-label="Nickname">
-    <button id="joinBtn">Join</button>
-    <div id="joinErr" class="err" role="alert"></div>
+  <section id="s-join" class="center stack">
+    <div class="big">เข้าร่วมเกม</div>
+    <div>
+      <label for="pin">รหัสเกม (PIN)</label>
+      <input type="text" id="pin" inputmode="numeric" maxlength="6" autocomplete="off">
+    </div>
+    <div>
+      <label for="nick">ชื่อเล่น</label>
+      <input type="text" id="nick" maxlength="20" autocomplete="off">
+    </div>
+    <button class="btn block" id="joinBtn" style="margin-top:20px">เข้าร่วม</button>
+    <div id="joinErr" class="err center-text" role="alert"></div>
   </section>
 
-  <section id="s-wait" class="hide stack">
+  <section id="s-wait" class="hide center stack">
     <div class="big" id="hello"></div>
-    <p class="muted">You're in. Watch the big screen.</p>
+    <p class="muted center-text">เข้าห้องแล้ว รอพิธีกรเริ่มเกมได้เลย ดูที่หน้าจอใหญ่</p>
   </section>
 
-  <section id="s-q" class="hide">
-    <div class="timer" id="timer" aria-live="off"></div>
-    <p class="prompt" id="prompt"></p>
-    <div class="grid" id="choices"></div>
+  <section id="s-ready" class="hide center stack">
+    <div class="center-text muted" id="readyLabel">เตรียมตัว</div>
+    <div class="big" id="readyTitle"></div>
+    <div class="center-text"><i class="ph-fill ph-lightning ready-num" aria-hidden="true"></i></div>
+    <p class="muted center-text">ดูหน้าจอใหญ่ กำลังจะเริ่มแล้ว</p>
   </section>
 
-  <section id="s-locked" class="hide stack">
-    <div class="big">Answer locked in</div>
-    <p class="muted" id="lockedMsg">Wait for the reveal.</p>
-  </section>
-
-  <section id="s-result" class="hide">
-    <div id="resultCard" class="card">
-      <div class="big" id="resultTitle"></div>
-      <p id="resultPts"></p>
-      <p id="resultRank"></p>
+  <!-- โหวต -->
+  <section id="s-vote" class="hide">
+    <div class="vhead"><span class="chip" id="vnum"></span><span class="timer" id="vtimer"></span></div>
+    <h2 id="vtitle" style="font-size:1.7rem;margin:10px 0 4px"></h2>
+    <p class="award-note" id="vnote"></p>
+    <div class="search">
+      <i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i>
+      <input type="search" id="vsearch" placeholder="ค้นหาชื่อ" aria-label="ค้นหาชื่อผู้เข้าชิง" autocomplete="off">
+    </div>
+    <div class="minibar" id="vbar">
+      <button type="button" id="openAll">ขยายทุกกลุ่ม</button>
+      <button type="button" id="closeAll">พับทุกกลุ่ม</button>
+    </div>
+    <div id="vlist"></div>
+    <div id="vnone" class="noresult hide">ไม่พบชื่อนี้ ลองพิมพ์คำอื่นนะ</div>
+    <div class="dock">
+      <p id="vErr" class="err center-text" role="alert" style="margin:0 0 6px"></p>
+      <button class="btn block" id="voteBtn" disabled>เลือกชื่อก่อนนะ</button>
     </div>
   </section>
 
-  <section id="s-end" class="hide stack">
-    <div class="big">Game over</div>
-    <div class="big" id="finalRank"></div>
-    <p class="muted" id="finalScore">Check the big screen for the podium.</p>
+  <section id="s-voted" class="hide stack">
+    <div class="vhead"><span class="chip" id="dnum"></span><span class="timer" id="dtimer"></span></div>
+    <div class="result good">
+      <i class="ph-bold ph-check-circle crownic" aria-hidden="true"></i>
+      <div class="muted">คุณโหวตให้</div>
+      <div class="big" id="votedName"></div>
+    </div>
+    <div class="live">
+      <h3>คะแนนสดตอนนี้</h3>
+      <div id="liveTop" role="status"></div>
+      <p id="liveEmpty" class="muted">รอผลจากหน้าจอใหญ่...</p>
+    </div>
+    <button class="btn ghost block" id="changeBtn"><i class="ph-bold ph-arrow-counter-clockwise" aria-hidden="true"></i>เปลี่ยนใจ</button>
+    <p id="votedMsg" class="muted center-text" role="status"></p>
+  </section>
+
+  <section id="s-vresult" class="hide center stack">
+    <div class="result good">
+      <i class="ph-bold ph-crown-simple crownic" aria-hidden="true"></i>
+      <div class="muted" id="vrAward"></div>
+      <div class="big" id="vrWinner"></div>
+      <p class="muted" id="vrSub"></p>
+    </div>
+    <p class="center-text" id="vrYou"></p>
+  </section>
+
+  <!-- ควิซ -->
+  <section id="s-q" class="hide">
+    <div class="vhead"><span></span><span class="timer" id="timer"></span></div>
+    <p class="prompt" id="prompt"></p>
+    <div class="qgrid" id="choices"></div>
+  </section>
+
+  <section id="s-locked" class="hide center stack">
+    <div class="big">ล็อกคำตอบแล้ว</div>
+    <p class="muted center-text" id="lockedMsg">รอเฉลยนะ</p>
+  </section>
+
+  <section id="s-result" class="hide center">
+    <div id="resultCard" class="result">
+      <div class="big" id="resultTitle"></div>
+      <p id="resultPts"></p>
+      <p id="resultRank" class="muted"></p>
+    </div>
+  </section>
+
+  <section id="s-end" class="hide center stack">
+    <div class="big">จบเกมแล้ว</div>
+    <div class="big" id="finalRank" style="color:var(--accent)"></div>
+    <p class="muted center-text" id="finalScore">ขอบคุณที่มาร่วมสนุกด้วยกัน ดูผลทั้งหมดที่หน้าจอใหญ่</p>
   </section>
 </main>
 
@@ -77,26 +172,25 @@
 const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
-const SCREENS = ['s-join', 's-wait', 's-q', 's-locked', 's-result', 's-end'];
+const SCREENS = ['s-join', 's-wait', 's-ready', 's-vote', 's-voted', 's-vresult', 's-q', 's-locked', 's-result', 's-end'];
 const show = id => SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+const LETTERS = 'กขคง';
+const SHAPES = ['triangle', 'diamond', 'circle', 'square'];
 
 let me = null;          // { player_id, game_id, pin, nick }
-let tick = null;
-let answeredIdx = -1;
+let cur = null;         // คำถามที่เปิดอยู่ (ข้อความล่าสุดจากโฮสต์)
+let tick = null, answeredIdx = -1, sel = -1, lastTally = null, timeUp = false;
+const myVote = {};      // idx -> ตัวเลือกที่โหวตไว้
 
-const urlPin = new URLSearchParams(location.search).get('pin') || '';
-$('pin').value = urlPin;
-
-// Resume after an accidental refresh
+// ---------- เข้าร่วม ----------
 try {
   const saved = JSON.parse(localStorage.getItem('quiz-me'));
-  if (saved && (!urlPin || saved.pin === urlPin)) { me = saved; start(); }
+  if (saved && saved.player_id) { me = saved; start(); }
 } catch (e) {}
 
 $('joinBtn').onclick = async () => {
   const pin = $('pin').value.trim(), nick = $('nick').value.trim();
-  if (!/^\d{6}$/.test(pin)) return void ($('joinErr').textContent = 'Enter the 6-digit PIN from the big screen.');
-  if (!nick) return void ($('joinErr').textContent = 'Pick a nickname.');
+  if (!pin || !nick) return void ($('joinErr').textContent = 'ใส่รหัสเกมและชื่อเล่นให้ครบก่อนนะ');
   $('joinBtn').disabled = true; $('joinErr').textContent = '';
   const { data, error } = await db.rpc('join_game', { p_pin: pin, p_nick: nick });
   $('joinBtn').disabled = false;
@@ -107,75 +201,209 @@ $('joinBtn').onclick = async () => {
 };
 
 function start() {
-  $('hello').textContent = 'Hi, ' + me.nick;
+  $('hello').textContent = 'สวัสดี ' + me.nick;
   show('s-wait');
   db.channel('quiz-' + me.pin, { config: { broadcast: { self: false } } })
     .on('broadcast', { event: 'state' }, ({ payload }) => handle(payload))
     .subscribe(status => { if (status === 'SUBSCRIBED') resync(); });
 }
 
-// Every (re)connect: read the current state from the database,
-// so a phone that dropped off Wi-Fi catches up on its own.
+// ทุกครั้งที่ต่อใหม่ อ่านสถานะล่าสุดจากฐานข้อมูล เพื่อให้เครื่องที่หลุดเน็ตตามทันเอง
 async function resync() {
   const { data: g } = await db.from('games')
-    .select('phase,current_q,q_started_at').eq('id', me.game_id).single();
+    .select('kind,phase,current_q,q_started_at').eq('id', me.game_id).single();
   if (!g) return;
   if (g.phase === 'question') {
     const { data: q } = await db.from('questions')
-      .select('idx,prompt,choices,duration_s').eq('game_id', me.game_id).eq('idx', g.current_q).single();
+      .select('idx,prompt,note,choices,groups,duration_s').eq('game_id', me.game_id).eq('idx', g.current_q).single();
     if (!q) return;
     const elapsed = (Date.now() - new Date(g.q_started_at).getTime()) / 1000;
-    handle({ type: 'question', idx: q.idx, prompt: q.prompt, choices: q.choices,
-             duration: Math.max(0, Math.min(q.duration_s, q.duration_s - elapsed)) });
+    handle({ type: 'question', idx: q.idx, kind: g.kind, prompt: q.prompt, note: q.note || '', choices: q.choices,
+             groups: q.groups, duration: Math.max(0, Math.min(q.duration_s, q.duration_s - elapsed)) });
   } else if (g.phase === 'ended') {
     show('s-end');
   }
 }
 
-function handle(m) {
-  clearInterval(tick);
-  if (m.type === 'question') {
-    if (answeredIdx === m.idx) return show('s-locked');
-    $('lockedMsg').textContent = 'Wait for the reveal.';
-    $('prompt').textContent = m.prompt;
-    $('choices').innerHTML = '';
-    m.choices.forEach((text, i) => {
-      if (!text) return;
-      const b = document.createElement('button');
-      b.className = 'c' + i;
-      b.textContent = 'ABCD'[i] + ' · ' + text;
-      b.onclick = () => answer(m.idx, i);
-      $('choices').appendChild(b);
-    });
-    const end = Date.now() + m.duration * 1000;
-    const draw = () => {
-      const s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-      $('timer').textContent = s + 's';
-      if (s === 0) { clearInterval(tick); $('choices').querySelectorAll('button').forEach(b => b.disabled = true); }
-    };
-    draw(); tick = setInterval(draw, 250);
-    show('s-q');
-  }
-  else if (m.type === 'reveal') {
-    const rank = m.board.findIndex(r => r[0] === me.nick);   // board rows: [nickname, total, points this round]
-    const row = m.board[rank];
-    const got = row && row[2] > 0;
-    $('resultCard').className = 'card ' + (got ? 'ok' : 'bad');
-    $('resultTitle').textContent = got ? 'Correct!' : (answeredIdx === m.idx ? 'Not this time' : 'No answer');
-    $('resultPts').textContent = got ? '+' + row[2] + ' points' : '';
-    $('resultRank').textContent = row ? `${row[1]} points · #${rank + 1} of ${m.board.length}` : '';
-    show('s-result');
-  }
-  else if (m.type === 'ended') {
-    const rank = m.board.findIndex(r => r[0] === me.nick);
-    $('finalRank').textContent = rank >= 0 ? '#' + (rank + 1) : '';
-    if (rank >= 0) $('finalScore').textContent = m.board[rank][1] + ' points';
-    try { localStorage.removeItem('quiz-me'); } catch (e) {}
-    show('s-end');
-  }
+// ---------- จับเวลา ----------
+function startTimer(seconds, ids, onEnd) {
+  clearInterval(tick); timeUp = false;
+  const end = Date.now() + seconds * 1000;
+  const draw = () => {
+    const s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+    ids.forEach(id => $(id).textContent = s + ' วิ');
+    if (s === 0) { clearInterval(tick); timeUp = true; onEnd(); }
+  };
+  draw(); if (!timeUp) tick = setInterval(draw, 250);
 }
 
-async function answer(idx, choice) {
+function handle(m) {
+  if (m.type === 'ready') return onReady(m);
+  if (m.type === 'question') return onQuestion(m);
+  if (m.type === 'tally') return onTally(m);
+  if (m.type === 'reveal') return m.kind === 'vote' ? onVoteReveal(m) : onQuizReveal(m);
+  if (m.type === 'ended') return onEnded(m);
+}
+
+function onReady(m) {
+  clearInterval(tick);
+  $('readyLabel').textContent = (m.kind === 'vote' ? 'รางวัลที่ ' : 'ข้อที่ ') + (m.idx + 1);
+  $('readyTitle').textContent = m.prompt;
+  show('s-ready');
+}
+
+function onQuestion(m) {
+  if (cur && cur.idx === m.idx) return;   // ข้อเดิมที่ resync ส่งซ้ำ ไม่ต้องรีเซ็ตหน้าจอ
+  sel = myVote[m.idx] ?? -1; lastTally = null;
+  cur = m;
+  if (m.kind === 'vote') return openVote(m);
+  clearInterval(tick);
+  if (answeredIdx === m.idx) return show('s-locked');
+  $('lockedMsg').textContent = 'รอเฉลยนะ';
+  $('prompt').textContent = m.prompt;
+  $('choices').innerHTML = '';
+  m.choices.forEach((text, i) => {
+    if (!text) return;
+    const b = document.createElement('button');
+    b.className = 'item tint' + (i + 1);
+    b.style.animationDelay = i * 70 + 'ms';
+    b.setAttribute('aria-label', 'ตัวเลือก ' + LETTERS[i] + ' ' + text);
+    b.innerHTML = `<i class="ph-fill ph-${SHAPES[i]}" aria-hidden="true"></i><span></span>`;
+    b.lastChild.textContent = text;
+    b.onclick = () => answerQuiz(m.idx, i);
+    $('choices').appendChild(b);
+  });
+  startTimer(m.duration, ['timer'], () => $('choices').querySelectorAll('button').forEach(b => b.disabled = true));
+  show('s-q');
+}
+
+// ---------- โหวต ----------
+function openVote(m) {
+  $('vnum').textContent = 'รางวัลที่ ' + (m.idx + 1);
+  $('vtitle').textContent = m.prompt;
+  $('vnote').textContent = m.note || '';
+  $('vnote').classList.toggle('hide', !m.note);
+  $('vsearch').value = ''; $('vErr').textContent = '';
+  buildList(m);
+  syncDock();
+  const finished = () => { $('voteBtn').disabled = true; $('voteBtn').textContent = 'หมดเวลาโหวตแล้ว'; $('changeBtn').classList.add('hide'); $('votedMsg').textContent = 'หมดเวลาแล้ว รอประกาศผลที่หน้าจอใหญ่'; };
+  startTimer(m.duration, ['vtimer', 'dtimer'], finished);
+  $('dnum').textContent = $('vnum').textContent;
+  $('changeBtn').classList.remove('hide'); $('votedMsg').textContent = '';
+  if (myVote[m.idx] !== undefined) showVoted(); else show('s-vote');
+}
+
+function buildList(m) {
+  const hasGroups = Array.isArray(m.groups) && m.groups.some(g => g);
+  const order = [], byGroup = new Map();
+  m.choices.forEach((name, i) => {
+    const g = hasGroups ? (m.groups[i] || 'อื่น ๆ') : '';
+    if (!byGroup.has(g)) { byGroup.set(g, []); order.push(g); }
+    byGroup.get(g).push(i);
+  });
+  const startOpen = !hasGroups || m.choices.length <= 12 || order.length <= 2;
+  $('vbar').classList.toggle('hide', !hasGroups || order.length < 2);
+  $('vlist').innerHTML = '';
+  order.forEach(g => {
+    const wrap = document.createElement(hasGroups ? 'details' : 'div');
+    wrap.className = 'grp'; if (!hasGroups) wrap.style.cssText = 'border:0;background:none';
+    if (hasGroups) {
+      wrap.open = startOpen || byGroup.get(g).includes(sel);
+      wrap.innerHTML = `<summary><i class="ph-bold ph-users-three" aria-hidden="true"></i><span></span><span class="n"></span><i class="ph-bold ph-caret-down car" aria-hidden="true"></i></summary>`;
+      wrap.querySelector('span').textContent = g;
+      wrap.querySelector('.n').textContent = byGroup.get(g).length + ' คน';
+    }
+    const items = document.createElement('div'); items.className = 'items';
+    if (!hasGroups) items.style.padding = '0';
+    byGroup.get(g).forEach(i => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'item'; b.dataset.i = i; b.dataset.q = m.choices[i].toLowerCase();
+      b.setAttribute('aria-pressed', i === sel ? 'true' : 'false');
+      b.innerHTML = '<span></span><i class="ph-bold ph-check tick" aria-hidden="true"></i>';
+      b.firstChild.textContent = m.choices[i];
+      b.onclick = () => { sel = i; $('vErr').textContent = ''; $('vlist').querySelectorAll('.item').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); syncDock(); };
+      items.appendChild(b);
+    });
+    wrap.appendChild(items); $('vlist').appendChild(wrap);
+  });
+}
+
+function syncDock() {
+  const b = $('voteBtn');
+  if (timeUp) return;
+  b.disabled = sel < 0;
+  b.textContent = sel < 0 ? 'เลือกชื่อก่อนนะ' : 'โหวตให้ ' + cur.choices[sel];
+}
+
+$('vsearch').oninput = () => {
+  const q = $('vsearch').value.trim().toLowerCase();
+  let any = false;
+  $('vlist').querySelectorAll('.grp').forEach(g => {
+    let n = 0;
+    g.querySelectorAll('.item').forEach(b => { const hit = !q || b.dataset.q.includes(q); b.classList.toggle('hide', !hit); if (hit) n++; });
+    g.classList.toggle('hide', n === 0);
+    if (q && n && g.tagName === 'DETAILS') g.open = true;
+    if (n) any = true;
+  });
+  $('vnone').classList.toggle('hide', any);
+};
+$('openAll').onclick = () => $('vlist').querySelectorAll('details').forEach(d => d.open = true);
+$('closeAll').onclick = () => $('vlist').querySelectorAll('details').forEach(d => d.open = false);
+
+$('voteBtn').onclick = async () => {
+  if (sel < 0 || !cur) return;
+  $('voteBtn').disabled = true; $('vErr').textContent = '';
+  const idx = cur.idx, pick = sel;
+  const { error } = await db.rpc('submit_answer', { p_player: me.player_id, p_idx: idx, p_choice: pick });
+  if (error) { $('vErr').textContent = error.message; $('voteBtn').disabled = false; return; }
+  myVote[idx] = pick;
+  showVoted();
+};
+
+function showVoted() {
+  $('votedName').textContent = cur.choices[myVote[cur.idx]];
+  paintLive();
+  show('s-voted');
+}
+$('changeBtn').onclick = () => { sel = myVote[cur.idx] ?? sel; buildList(cur); syncDock(); show('s-vote'); };
+
+function onTally(m) {
+  if (!cur || cur.idx !== m.idx) return;
+  lastTally = m; paintLive();
+}
+function paintLive() {
+  const top = lastTally ? lastTally.top : [];
+  $('liveEmpty').classList.toggle('hide', top.length > 0);
+  const max = top.length ? top[0][1] : 1;
+  $('liveTop').innerHTML = '';
+  top.slice(0, 3).forEach(([k, n]) => {
+    const row = document.createElement('div'); row.className = 'lrow';
+    row.innerHTML = '<div class="t"><span></span><b></b></div><div class="b"><i></i></div>';
+    row.querySelector('span').textContent = cur.choices[k];
+    row.querySelector('b').textContent = n;
+    row.querySelector('i').style.transform = `scaleX(${n / max})`;
+    $('liveTop').appendChild(row);
+  });
+}
+
+function onVoteReveal(m) {
+  clearInterval(tick);
+  const q = cur;
+  if (!q || q.idx !== m.idx) return show('s-wait');
+  const ranked = Object.entries(m.dist).map(([k, n]) => ({ k: +k, n })).sort((a, b) => b.n - a.n || a.k - b.k);
+  const topN = ranked.length ? ranked[0].n : 0;
+  const winners = ranked.filter(r => r.n === topN && topN > 0);
+  $('vrAward').textContent = q.prompt;
+  $('vrWinner').textContent = winners.length ? winners.map(r => q.choices[r.k]).join(' และ ') : 'ไม่มีใครโหวต';
+  $('vrSub').textContent = winners.length ? `${topN} คะแนน จากผู้โหวต ${m.answered} คน` : '';
+  const mine = myVote[m.idx];
+  $('vrYou').textContent = mine === undefined ? 'รอบนี้คุณไม่ได้โหวต'
+    : (winners.some(r => r.k === mine) ? 'คุณโหวตถูกใจชาวบ้าน ได้ตัวเต็งเลย' : 'คุณโหวตให้ ' + q.choices[mine]);
+  show('s-vresult');
+}
+
+// ---------- ควิซ ----------
+async function answerQuiz(idx, choice) {
   answeredIdx = idx;
   clearInterval(tick);
   show('s-locked');
@@ -183,6 +411,32 @@ async function answer(idx, choice) {
   if (error) $('lockedMsg').textContent = error.message;
   else if (data && !data.accepted) $('lockedMsg').textContent = data.reason;
 }
+
+function onQuizReveal(m) {
+  clearInterval(tick);
+  const rank = m.board.findIndex(r => r[0] === me.nick);   // แถว: [ชื่อ, คะแนนรวม, คะแนนรอบนี้]
+  const row = m.board[rank];
+  const got = row && row[2] > 0;
+  $('resultCard').className = 'result' + (got ? ' good' : '');
+  $('resultTitle').textContent = got ? 'ถูกต้อง!' : (answeredIdx === m.idx ? 'ยังไม่ใช่รอบนี้' : 'ไม่ได้ตอบ');
+  $('resultPts').textContent = got ? '+' + row[2] + ' คะแนน' : '';
+  $('resultRank').textContent = row ? `${row[1]} คะแนน อันดับ ${rank + 1} จาก ${m.board.length}` : '';
+  show('s-result');
+}
+
+function onEnded(m) {
+  clearInterval(tick);
+  if (m.board) {
+    const rank = m.board.findIndex(r => r[0] === me.nick);
+    $('finalRank').textContent = rank >= 0 ? 'อันดับ ' + (rank + 1) : '';
+    if (rank >= 0) $('finalScore').textContent = m.board[rank][1] + ' คะแนน';
+  } else {
+    $('finalRank').textContent = '';
+  }
+  try { localStorage.removeItem('quiz-me'); } catch (e) {}
+  show('s-end');
+}
 </script>
+<script src="fx.js"></script>
 </body>
 </html>

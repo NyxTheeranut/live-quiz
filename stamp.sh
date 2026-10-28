@@ -5,6 +5,6 @@
 cd "$(dirname "$0")" || exit 1
 V=$(date +%Y%m%d%H%M%S)
 for f in host.html index.html bots.html; do
-  perl -pi -e "s/((?:src|href)=\"(?:theme\.css|host\.css|fx\.js|sound\.js|studio\.js|host\.js|config\.js))(?:\?v=\d+)?\"/\$1?v=$V\"/g" "$f"
+  perl -pi -e "s/((?:src|href)=\"(?:theme\.css|host\.css|ui\.js|fx\.js|sound\.js|studio\.js|host\.js|config\.js))(?:\?v=\d+)?\"/\$1?v=$V\"/g" "$f"
 done
 echo "stamped $V"

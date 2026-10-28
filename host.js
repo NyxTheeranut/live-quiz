@@ -88,7 +88,7 @@ async function endGame(g) {
   channel = null; G = prev;
 }
 $('discardBtn').onclick = async () => {
-  if (!confirm('ปิดเกมที่ค้างอยู่ใช่ไหม ผู้เล่นทุกคนจะถูกตัดออกจากเกมนี้ทันที')) return;
+  if (!(await UI.confirm('ปิดเกมที่ค้างอยู่ใช่ไหม ผู้เล่นทุกคนจะถูกตัดออกจากเกมนี้ทันที', 'ปิดเกม'))) return;
   $('discardBtn').disabled = true;
   try { await endGame(JSON.parse(localStorage.getItem('quiz-host'))); } catch (e) {}
   localStorage.removeItem('quiz-host'); $('resumeBox').classList.add('hide'); $('discardBtn').disabled = false;
@@ -168,7 +168,7 @@ async function askQuestion(i) {
   stopTimers(); revealing = false; lastTally = ''; lastTallyAt = 0; leaveFog();
   const q = G.questions[i], vote = G.kind === 'vote';
   const { error } = await host('set_phase', { p_phase: 'question', p_q: i });
-  if (error) return alert(error.message);
+  if (error) return UI.toast(error.message);
   G.qi = i; saveGame();
   await send({ type: 'question', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', choices: q.choices, groups: q.groups || null, hideText: !vote && !!(q.groups && q.groups.hideText), maxVotes: q.max_votes || 1, duration: q.duration });
 
@@ -384,7 +384,7 @@ async function reveal() {
   if (G.kind === 'vote') return revealVote(i, q, last);
 
   const { data, error } = await host('host_reveal', { p_idx: i });
-  if (error) { revealing = false; return alert(error.message); }
+  if (error) { revealing = false; return UI.toast(error.message); }
   const board = data.board.map(r => [r.nickname, r.score, r.last]);
   await send({ type: 'reveal', kind: 'quiz', idx: i, correct: data.correct, board });
   const total = Object.values(data.dist).reduce((a, b) => a + b, 0) || 1;
@@ -400,7 +400,7 @@ async function reveal() {
 
 async function revealVote(i, q, last) {
   const { data, error } = await host('host_stats', { p_idx: i });
-  if (error) { revealing = false; return alert(error.message); }
+  if (error) { revealing = false; return UI.toast(error.message); }
   $('voteResult').classList.remove('hide'); $('quizResult').classList.add('hide');
   $('nextBtn').innerHTML = last ? 'ดูสรุปทุกรางวัล' : 'รางวัลถัดไป';
 
@@ -486,7 +486,7 @@ async function finish() {
 
 $('csvBtn').onclick = async () => {
   const { data, error } = await db.rpc('get_results', { p_pin: G.pin, p_token: G.host_token });
-  if (error) return alert(error.message);
+  if (error) return UI.toast(error.message);
   const cols = ['nickname', 'question', 'prompt', 'choice', 'correct', 'is_correct', 'elapsed_ms', 'points'];
   const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = [cols.join(','), ...data.map(r => cols.map(c => cell(r[c])).join(','))].join('\r\n');

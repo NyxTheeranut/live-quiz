@@ -131,6 +131,15 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; }
 .tint5 { --tint: var(--c5); } .tint6 { --tint: var(--c6); } .tint7 { --tint: var(--c7); } .tint8 { --tint: var(--c8); }
 .shape { font-size: 1.3em; }
 
+/* ---------- in-page confirm dialog and toast (see ui.js) ---------- */
+dialog.cfm { width: min(520px, calc(100vw - 32px)); padding: 0; border: 2px solid var(--edge); border-radius: 24px; background: var(--surface); color: var(--text); box-shadow: 0 30px 80px rgba(0, 0, 0, .6); }
+dialog.cfm::backdrop { background: rgba(8, 12, 22, .72); backdrop-filter: blur(4px); }
+dialog.cfm .dlg { padding: 26px; }
+dialog.cfm h3 { font-size: 1.35rem; line-height: 1.4; margin-bottom: 4px; }
+dialog.cfm .row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+.toasts { position: fixed; left: 16px; right: 16px; bottom: 24px; z-index: 90; display: grid; justify-items: center; gap: 8px; pointer-events: none; }
+.toast { max-width: min(620px, 100%); padding: 14px 22px; border-radius: var(--r-card); background: var(--surface-2); border: 2px solid var(--c1); color: var(--text); font-weight: 600; box-shadow: 0 12px 30px rgba(0, 0, 0, .5); animation: rise .3s var(--ease) both; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
   .bgfx i { animation: none; }

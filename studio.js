@@ -313,8 +313,8 @@ document.addEventListener('click', e => { if (!e.target.closest('#importMenu')) 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 
 $('btnSample').onclick = () => { closeMenu(); const s = clone(SAMPLE); if (S.kind === 'vote') { S.awards = s.awards; S.groups = s.groups; } else S.quiz = s.quiz; renderAll(); save(); };
-$('btnClear').onclick = () => {
-  closeMenu(); if (!confirm('ล้างข้อมูลทั้งหมดของโหมดนี้ใช่ไหม')) return;
+$('btnClear').onclick = async () => {
+  closeMenu(); if (!(await UI.confirm('ล้างข้อมูลทั้งหมดของโหมดนี้ใช่ไหม', 'ล้างทั้งหมด'))) return;
   if (S.kind === 'vote') { S.awards = [{ title: '', note: '', sec: 90, max: 1 }]; S.groups = [{ name: '', names: [] }]; }
   else S.quiz = [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }];
   renderAll(); save();

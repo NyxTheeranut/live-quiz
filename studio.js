@@ -4,7 +4,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const LETTERS = 'กขคงจฉชซ';
 const MAXCH = 8;
-const SHAPES = ['triangle', 'diamond', 'circle', 'square'];
+const SHAPES = ['triangle', 'diamond', 'circle', 'square', 'star', 'heart', 'hexagon', 'pentagon'];   // choice N always has colour N and shape N
 const EMOJI = ['😭', '🗣️', '👑', '🦥', '🔥', '👻', '🤥', '💃', '🐍', '🥇', '😂', '🤣', '🏆', '🎉', '😎', '🍜', '☕', '💤', '🎤', '🤡', '🧠', '💸', '🐶', '🌶️'];
 const LEAD_EMOJI = /^\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*\s*/u;
 const DEFAULT_TITLE = { vote: 'ประกาศรางวัลตัวตึงแห่งปี', quiz: 'ควิซวันศุกร์' };
@@ -155,10 +155,10 @@ function renderQuiz(focus) {
         <div><label class="mini" for="qp${i}">คำถาม</label>
           <textarea id="qp${i}" data-f="prompt" rows="2" maxlength="140" placeholder="พิมพ์คำถามที่นี่">${esc(q.prompt)}</textarea></div>
         <div class="answers">${q.choices.map((c, k) => `
-          <div class="ans tint${k % 4 + 1}"><i class="ph-fill ph-${SHAPES[k % 4]} shape" aria-hidden="true"></i><span class="lt" aria-hidden="true">${LETTERS[k]}</span>
-            <input type="text" data-f="ch" data-k="${k}" maxlength="60" value="${esc(c)}" aria-label="ตัวเลือก ${LETTERS[k]}" placeholder="ตัวเลือก ${LETTERS[k]}${k > 1 ? ' (ไม่ใส่ก็ได้)' : ''}">
-            <button type="button" class="ok" data-act="correct" data-k="${k}" aria-pressed="${q.correct === k}" aria-label="ตั้งตัวเลือก ${LETTERS[k]} เป็นข้อที่ถูก"><i class="ph-bold ph-check" aria-hidden="true"></i></button>
-            ${q.choices.length > 2 ? `<button type="button" class="rm" data-act="chdel" data-k="${k}" aria-label="ลบตัวเลือก ${LETTERS[k]}"><i class="ph-bold ph-x" aria-hidden="true"></i></button>` : ''}
+          <div class="ans tint${k + 1}"><i class="ph-fill ph-${SHAPES[k]} shape" aria-hidden="true"></i>
+            <input type="text" data-f="ch" data-k="${k}" maxlength="60" value="${esc(c)}" aria-label="ตัวเลือกที่ ${k + 1}" placeholder="ตัวเลือกที่ ${k + 1}${k > 1 ? ' (ไม่ใส่ก็ได้)' : ''}">
+            <button type="button" class="ok" data-act="correct" data-k="${k}" aria-pressed="${q.correct === k}" aria-label="ตั้งตัวเลือกที่ ${k + 1} เป็นข้อที่ถูก"><i class="ph-bold ph-check" aria-hidden="true"></i></button>
+            ${q.choices.length > 2 ? `<button type="button" class="rm" data-act="chdel" data-k="${k}" aria-label="ลบตัวเลือกที่ ${k + 1}"><i class="ph-bold ph-x" aria-hidden="true"></i></button>` : ''}
           </div>`).join('')}
           ${q.choices.length < MAXCH ? `<button type="button" class="addans" data-act="chadd"><i class="ph-bold ph-plus" aria-hidden="true"></i>เพิ่มตัวเลือก (${q.choices.length}/${MAXCH})</button>` : ''}</div>
         <div class="secs" role="group" aria-label="เวลาตอบ"><span class="muted">เวลาตอบ</span>

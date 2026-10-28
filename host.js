@@ -179,7 +179,7 @@ async function askQuestion(i) {
   else {
     $('qchoices').className = 'tiles' + (q.choices.length > 4 ? ' many' : '');
     $('qchoices').innerHTML = q.choices.map((c, k) => c
-      ? `<div class="tile tint${k % 4 + 1}" style="animation-delay:${k * 80}ms"><i class="ph-fill ph-${SHAPES[k % 4]} sh" aria-hidden="true"></i><span class="ltr" aria-hidden="true">${LETTERS[k]}</span><span>${esc(c)}</span></div>` : '').join('');
+      ? `<div class="tile tint${k + 1}" style="animation-delay:${k * 80}ms"><i class="ph-fill ph-${SHAPES[k]} sh" aria-hidden="true"></i><span>${esc(c)}</span></div>` : '').join('');
   }
   show('h-q');
   Sound.music(musicOn(), .24);
@@ -385,7 +385,7 @@ async function reveal() {
   const total = Object.values(data.dist).reduce((a, b) => a + b, 0) || 1;
   $('voteResult').classList.add('hide'); $('quizResult').classList.remove('hide');
   $('bars').innerHTML = q.choices.map((c, k) => !c ? '' : `
-    <div class="qb tint${k % 4 + 1} ${k === data.correct ? '' : 'wrong'}"><i class="ph-fill ph-${SHAPES[k % 4]}" aria-hidden="true"></i><span class="ltr" aria-hidden="true">${LETTERS[k]}</span>
+    <div class="qb tint${k + 1} ${k === data.correct ? '' : 'wrong'}"><i class="ph-fill ph-${SHAPES[k]}" aria-hidden="true"></i>
       <span>${esc(c)}</span><b>${data.dist[k] || 0}${k === data.correct ? ' (ถูก)' : ''}</b></div>`).join('');
   renderPodium($('qpod'), board.filter(r => r[1] > 0).map(r => ({ label: r[0], sub: r[1] + ' คะแนน', n: r[1] })));
   $('nextBtn').innerHTML = last ? 'ดูผลรวม' : 'ข้อถัดไป'; $('nextBtn').disabled = false;

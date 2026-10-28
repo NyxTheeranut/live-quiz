@@ -212,15 +212,12 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .switchrow small { display: block; color: var(--muted); font-size: .9rem; line-height: 1.4; }
 
 /* ================= Quiz with up to 8 choices ================= */
-.ans .lt { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(0, 0, 0, .18); font: 800 .95rem var(--font-display); }
 .ans .rm { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: var(--on-c); font-size: 1.1rem; cursor: pointer; opacity: .7; }
 .ans .rm:hover { opacity: 1; background: rgba(0, 0, 0, .15); }
 .addans { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border: 2px dashed var(--edge); border-radius: var(--r-card); background: transparent; color: var(--muted); font: 700 1rem var(--font-display); cursor: pointer; }
 .addans:hover { background: var(--surface-2); color: var(--text); }
-.tile .ltr { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(0, 0, 0, .18); font: 800 1.3rem var(--font-display); }
 .tiles.many .tile { min-height: 84px; padding: 12px 20px; font-size: clamp(1.1rem, 2.4vw, 1.6rem); }
 .tiles.many .tile i.sh { font-size: 1.8rem; }
-.qb .ltr { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(0, 0, 0, .18); font: 800 1.05rem var(--font-display); }
 
 /* ================= Suspense fog: the ranking chart, blurred, nameless and restless ================= */
 .fog { position: relative; margin-top: 18px; animation: rise .6s var(--ease) both; }

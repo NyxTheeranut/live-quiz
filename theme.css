@@ -19,6 +19,10 @@
   --c2: #3DB9FF;   /* sky    */
   --c3: #FFC233;   /* sun    */
   --c4: #2ED8A3;   /* mint   */
+  --c5: #FF7EB6;   /* pink     (quiz choices 5-8: every choice has its own colour AND shape) */
+  --c6: #A8E05F;   /* lime   */
+  --c7: #FF8A3D;   /* orange */
+  --c8: #B79CFF;   /* lavender */
   --on-c: #1A1206; /* dark ink on every candy colour */
   --accent: var(--c3);
   --on-accent: var(--on-c);
@@ -124,6 +128,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: .8; }
 .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; background: var(--surface-2); border-radius: var(--r-pill); font-weight: 600; }
 .award-note { color: var(--muted); font-size: 1.1rem; margin: 0; }
 .tint1 { --tint: var(--c1); } .tint2 { --tint: var(--c2); } .tint3 { --tint: var(--c3); } .tint4 { --tint: var(--c4); }
+.tint5 { --tint: var(--c5); } .tint6 { --tint: var(--c6); } .tint7 { --tint: var(--c7); } .tint8 { --tint: var(--c8); }
 .shape { font-size: 1.3em; }
 
 @media (prefers-reduced-motion: reduce) {

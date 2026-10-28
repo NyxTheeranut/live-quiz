@@ -163,11 +163,12 @@
       <button class="btn" id="closeBtn"><i class="ph-fill ph-trophy" aria-hidden="true"></i>ปิดโหวตและประกาศผล</button>
     </div>
     <div id="fog" class="fog hide">
-      <div class="fog-bar">
+      <div id="fogChart" class="chart fogchart" aria-hidden="true"></div>
+      <div class="veil" aria-hidden="true"></div>
+      <div class="fog-center">
         <div id="fogText" class="fog-text" aria-live="polite">คะแนนถูกซ่อนไว้แล้ว</div>
         <div id="fogSub" class="fog-sub num"></div>
       </div>
-      <canvas id="fogCanvas" class="fogcv" role="img" aria-label="กราฟคะแนนที่ถูกหมอกบังไว้ เส้นขึ้นลงตามการโหวต แต่ยังไม่เปิดเผยว่าใครนำ"></canvas>
     </div>
     <div id="chart" class="chart"></div>
     <div id="chartEmpty" class="empty"><i class="ph-bold ph-hand-pointing bob" aria-hidden="true"></i>รอคะแนนแรกอยู่นะ...</div>

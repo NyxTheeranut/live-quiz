@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261028210624">
-<link rel="stylesheet" href="host.css?v=20261028210624">
+<link rel="stylesheet" href="theme.css?v=20261028211340">
+<link rel="stylesheet" href="host.css?v=20261028211340">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261028210624"></script>
+<script src="config.js?v=20261028211340"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -213,7 +213,10 @@
     <div id="bars" class="qbars"></div>
     <div id="qpod" class="pod" aria-label="ผู้นำคะแนน"></div>
   </div>
-  <div class="row"><button class="btn big" id="nextBtn"></button></div>
+  <!-- แตะที่ไหนก็ได้บนหน้าจอเพื่อไปต่อ (ปุ่มเต็มจอ แต่มองเห็นแค่คำใบ้ด้านล่าง) -->
+  <button type="button" class="tapnext hide" id="nextBtn" disabled>
+    <span class="taphint"><i class="ph-bold ph-hand-tap" aria-hidden="true"></i><span id="nextLabel"></span><i class="ph-bold ph-caret-double-right" aria-hidden="true"></i></span>
+  </button>
 </section>
 
 <!-- 5. จบเกม -->
@@ -267,10 +270,10 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261028210624"></script>
-<script src="fx.js?v=20261028210624"></script>
-<script src="sound.js?v=20261028210624"></script>
-<script src="studio.js?v=20261028210624"></script>
-<script src="host.js?v=20261028210624"></script>
+<script src="ui.js?v=20261028211340"></script>
+<script src="fx.js?v=20261028211340"></script>
+<script src="sound.js?v=20261028211340"></script>
+<script src="studio.js?v=20261028211340"></script>
+<script src="host.js?v=20261028211340"></script>
 </body>
 </html>

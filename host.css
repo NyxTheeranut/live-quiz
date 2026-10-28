@@ -141,7 +141,7 @@ dialog::backdrop { background: rgba(8, 12, 22, .72); backdrop-filter: blur(4px);
 
 /* reveal */
 .rtitle { text-align: center; font-size: clamp(1.4rem, 3.6vw, 2.2rem); color: var(--muted); margin-top: 28px; }
-#h-reveal { max-width: 1240px; margin: 0 auto; padding: 0 24px 72px; }
+#h-reveal { max-width: 1240px; margin: 0 auto; padding: 0 24px 130px; }
 .drum { text-align: center; font: 700 1.6rem var(--font-display); color: var(--c3); min-height: 2.2rem; animation: bob 1s ease-in-out infinite; }
 .drum.done { animation: none; visibility: hidden; }
 .stage { text-align: center; padding: 8px 0 8px; }
@@ -245,3 +245,14 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .prescreen .btn.big { margin-top: 22px; animation: pop .55s var(--spring) .3s both; }
 .prescreen .hint { margin-top: 2px; }
 @media (max-width: 900px) { .prescreen { padding: 28px 16px; } }
+
+/* ================= Tap anywhere to continue (result screens) ================= */
+.tapnext { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-end; justify-content: center; padding: 0 16px 30px; border: 0; background: transparent; color: var(--text); cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.tapnext:disabled { cursor: default; }
+.taphint { display: inline-flex; align-items: center; gap: 12px; max-width: 100%; padding: 14px 26px; border-radius: var(--r-pill); background: rgba(14, 22, 38, .88); border: 2px solid var(--c3); font: 700 1.2rem/1.3 var(--font-display); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); animation: tapbob 1.8s ease-in-out infinite; transition: background .15s, color .15s; }
+.taphint i { color: var(--c3); font-size: 1.5rem; flex: none; }
+.tapnext:hover .taphint, .tapnext:active .taphint { background: var(--c3); color: var(--on-c); }
+.tapnext:hover .taphint i, .tapnext:active .taphint i { color: var(--on-c); }
+.tapnext:focus-visible .taphint { outline: 3px solid var(--text); outline-offset: 4px; }
+@keyframes tapbob { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-6px) scale(1.03); } }
+@media (max-width: 560px) { .taphint { font-size: 1rem; padding: 12px 18px; } }

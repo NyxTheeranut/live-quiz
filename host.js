@@ -6,6 +6,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+  if (id !== 'h-reveal') setNext(null, false);
   if (id !== 'h-q') leaveFog();            // เปิดกราฟจริงคืนก็ต่อเมื่อออกจากหน้าโหวตไปแล้วเท่านั้น
   $('tbar').classList.add('hide');
   window.scrollTo(0, 0);
@@ -387,7 +388,7 @@ async function reveal() {
   Sound.stopMusic(.25);
   $('rprompt').textContent = q.prompt;
   const last = i + 1 >= G.questions.length;
-  $('nextBtn').disabled = true;
+  setNext(null, false);
   if (G.kind === 'vote') {            // ขึ้นหน้าประกาศผลทันที ก่อนรอเน็ต จะได้ไม่มีภาพอันดับหลุดให้เห็น
     $('voteResult').classList.remove('hide'); $('quizResult').classList.add('hide');
     $('stage').classList.add('pending'); $('stage').classList.remove('pop');
@@ -409,7 +410,7 @@ async function reveal() {
     <div class="qb tint${k + 1} ${k === data.correct ? '' : 'wrong'}"><i class="ph-fill ph-${SHAPES[k]}" aria-hidden="true"></i>
       <span>${esc(c)}</span><b>${data.dist[k] || 0}${k === data.correct ? ' (ถูก)' : ''}</b></div>`).join('');
   renderPodium($('qpod'), board.filter(r => r[1] > 0).map(r => ({ label: r[0], sub: r[1] + ' คะแนน', n: r[1] })));
-  $('nextBtn').innerHTML = last ? 'ดูผลรวม' : 'ข้อถัดไป'; $('nextBtn').disabled = false;
+  setNext('แตะที่หน้าจอเพื่อ' + (last ? 'ดูผลรวม' : 'ไปข้อถัดไป'), true, 900);
   show('h-reveal');
   sfx.crash(); sfx.win(); confetti();
 }
@@ -418,7 +419,7 @@ async function revealVote(i, q, last) {
   const { data, error } = await host('host_stats', { p_idx: i });
   if (error) { revealing = false; return UI.toast(error.message); }
   $('voteResult').classList.remove('hide'); $('quizResult').classList.add('hide');
-  $('nextBtn').innerHTML = last ? 'ดูสรุปทุกรางวัล' : 'รางวัลถัดไป';
+  const nextLabel = 'แตะที่หน้าจอเพื่อ' + (last ? 'ดูสรุปทุกรางวัล' : 'ไปรางวัลถัดไป');
 
   const ranked = Object.entries(data.dist).map(([k, n]) => ({ k: +k, n })).sort((a, b) => b.n - a.n || a.k - b.k);
   const topN = ranked.length ? ranked[0].n : 0;
@@ -465,11 +466,23 @@ async function revealVote(i, q, last) {
   renderPodium($('pod'), ranked.filter(r => r.n > 0).map(r => ({ label: label(r), sub: sub(r), n: r.n })));
   $('runners').innerHTML = ranked.filter(r => r.n > 0).slice(3, 6)
     .map((r, k) => `<li style="animation-delay:${.9 + k * .12}s"><span class="aw">${k + 4}. ${esc(label(r))}</span><b>${r.n}</b></li>`).join('');
-  $('nextBtn').disabled = false;
+  setNext(nextLabel, true, 900);
   if (winners.length) { sfx.crash(); sfx.win(); confetti(); } else Sound.stopDrum();
   await send({ type: 'reveal', kind: 'vote', idx: i, dist: data.dist, answered: data.answered });
 }
-$('nextBtn').onclick = () => G.qi + 1 < G.questions.length ? intro(G.qi + 1) : finish();
+// ปุ่มเต็มจอ "แตะที่ไหนก็ได้เพื่อไปต่อ": เปิดให้กดได้หลังผลขึ้นครบ + หน่วงสั้น ๆ กันเผลอดับเบิลคลิกข้ามผล
+function setNext(label, on, delay = 0) {
+  clearTimeout(setNext.t);
+  const b = $('nextBtn');
+  if (!on) { b.disabled = true; b.classList.add('hide'); return; }
+  $('nextLabel').textContent = label;
+  setNext.t = setTimeout(() => { b.disabled = false; b.classList.remove('hide'); b.focus({ preventScroll: true }); }, delay);
+}
+$('nextBtn').onclick = () => { if ($('nextBtn').disabled) return; G.qi + 1 < G.questions.length ? intro(G.qi + 1) : finish(); };
+document.addEventListener('keydown', e => {            // ลูกศรขวาไปต่อได้ด้วย (Space และ Enter ทำงานกับปุ่มที่โฟกัสอยู่แล้ว)
+  const b = $('nextBtn');
+  if (e.key === 'ArrowRight' && !b.disabled && !b.classList.contains('hide') && !e.target.closest('input,textarea,select,dialog')) { e.preventDefault(); b.click(); }
+});
 
 // ---------- 5. จบเกม ----------
 async function finish() {

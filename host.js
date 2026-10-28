@@ -86,7 +86,25 @@ $('resumeBtn').onclick = () => {
   openChannel();
   G.qi < 0 ? lobby() : setTimeout(reveal, 800);   // รีเฟรชกลางเกม: ข้ามไปหน้าผลของข้อนั้น
 };
-$('discardBtn').onclick = () => { localStorage.removeItem('quiz-host'); $('resumeBox').classList.add('hide'); };
+// ปิดเกมค้างให้จริง: จบเกมที่ฐานข้อมูล (ไม่รับโหวตหรือคนเข้าเพิ่ม) แล้วบอกมือถือทุกเครื่อง
+async function endGame(g) {
+  const prev = G; G = g;
+  try {
+    const ch = db.channel('quiz-' + g.pin, { config: { broadcast: { self: false, ack: true } } });
+    channel = ch;
+    await new Promise(res => { ch.subscribe(st => { if (st === 'SUBSCRIBED' || st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') res(); }); setTimeout(res, 3000); });
+    await host('set_phase', { p_phase: 'ended', p_q: g.qi });
+    await send({ type: 'ended', kind: g.kind, aborted: true });
+    try { db.removeChannel(ch); } catch (e) {}
+  } catch (e) {}
+  channel = null; G = prev;
+}
+$('discardBtn').onclick = async () => {
+  if (!confirm('ปิดเกมที่ค้างอยู่ใช่ไหม ผู้เล่นทุกคนจะถูกตัดออกจากเกมนี้ทันที')) return;
+  $('discardBtn').disabled = true;
+  try { await endGame(JSON.parse(localStorage.getItem('quiz-host'))); } catch (e) {}
+  localStorage.removeItem('quiz-host'); $('resumeBox').classList.add('hide'); $('discardBtn').disabled = false;
+};
 
 $('createBtn').onclick = async () => {
   const b = Studio.build();
@@ -97,6 +115,7 @@ $('createBtn').onclick = async () => {
     return;
   }
   $('createBtn').disabled = true; $('setupErr').textContent = '';
+  try { const old = JSON.parse(localStorage.getItem('quiz-host')); if (old && old.game_id) { await endGame(old); localStorage.removeItem('quiz-host'); } } catch (e) {}
   const { data, error } = await db.rpc('create_game', { p_title: b.title, p_questions: b.questions, p_kind: b.kind });
   $('createBtn').disabled = false;
   if (error) return void ($('setupErr').textContent = error.message);

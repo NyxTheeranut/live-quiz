@@ -162,7 +162,7 @@
   </section>
 
   <section id="s-end" class="hide center stack">
-    <div class="big">จบเกมแล้ว</div>
+    <div class="big" id="endTitle">จบเกมแล้ว</div>
     <div class="big" id="finalRank" style="color:var(--accent)"></div>
     <p class="muted center-text" id="finalScore">ขอบคุณที่มาร่วมสนุกด้วยกัน ดูผลทั้งหมดที่หน้าจอใหญ่</p>
   </section>
@@ -426,6 +426,9 @@ function onQuizReveal(m) {
 
 function onEnded(m) {
   clearInterval(tick);
+  $('endTitle').textContent = m.aborted ? 'พิธีกรปิดเกมนี้แล้ว' : 'จบเกมแล้ว';
+  if (m.aborted) { $('finalRank').textContent = ''; $('finalScore').textContent = 'เกมนี้ถูกปิดโดยผู้จัด รอรอบใหม่ได้เลย'; try { localStorage.removeItem('quiz-me'); } catch (e) {} return show('s-end'); }
+  $('finalScore').textContent = 'ขอบคุณที่มาร่วมสนุกด้วยกัน ดูผลทั้งหมดที่หน้าจอใหญ่';
   if (m.board) {
     const rank = m.board.findIndex(r => r[0] === me.nick);
     $('finalRank').textContent = rank >= 0 ? 'อันดับ ' + (rank + 1) : '';

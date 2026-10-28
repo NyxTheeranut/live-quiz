@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261028205700">
-<link rel="stylesheet" href="host.css?v=20261028205700">
+<link rel="stylesheet" href="theme.css?v=20261028210624">
+<link rel="stylesheet" href="host.css?v=20261028210624">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261028205700"></script>
+<script src="config.js?v=20261028210624"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -67,6 +67,11 @@
 
     <div id="settingsCard" class="card settings">
       <h2 class="sethead"><i class="ph-fill ph-lightning" aria-hidden="true"></i>ตั้งค่าเกม</h2>
+      <label class="switchrow">
+        <input type="checkbox" role="switch" id="setPreview">
+        <span class="sw" aria-hidden="true"></span>
+        <span><b>แสดงโจทย์ก่อน แล้วกดถัดไปเพื่อเริ่ม</b><small>หน้าจอใหญ่ค้างอยู่ที่โจทย์ ผู้เล่นยังโหวตหรือตอบไม่ได้ จนกว่าจะกดปุ่มเริ่ม (ปิดไว้ = นับ 3 2 1 แล้วเริ่มเลย)</small></span>
+      </label>
       <label class="switchrow">
         <input type="checkbox" role="switch" id="setMusic">
         <span class="sw" aria-hidden="true"></span>
@@ -141,6 +146,16 @@
     </div>
   </div>
   <div id="names" class="bubbles"></div>
+</section>
+
+<!-- 2.5 แสดงโจทย์ รอผู้จัดกดเริ่ม -->
+<section id="h-pre" class="hide prescreen">
+  <span class="chip" id="preLabel"></span>
+  <h1 id="preTitle" class="pre-title"></h1>
+  <p id="preNote" class="pre-note"></p>
+  <div class="pre-meta"><span class="chip num" id="preTime"></span><span class="chip hide" id="preMax"></span></div>
+  <button class="btn big" id="preGo"></button>
+  <p class="hint" id="preHint"></p>
 </section>
 
 <!-- 3. กำลังถาม / กำลังโหวต -->
@@ -252,10 +267,10 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261028205700"></script>
-<script src="fx.js?v=20261028205700"></script>
-<script src="sound.js?v=20261028205700"></script>
-<script src="studio.js?v=20261028205700"></script>
-<script src="host.js?v=20261028205700"></script>
+<script src="ui.js?v=20261028210624"></script>
+<script src="fx.js?v=20261028210624"></script>
+<script src="sound.js?v=20261028210624"></script>
+<script src="studio.js?v=20261028210624"></script>
+<script src="host.js?v=20261028210624"></script>
 </body>
 </html>

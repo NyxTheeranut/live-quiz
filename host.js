@@ -1,7 +1,7 @@
 // Host game engine. Uses $, esc, LETTERS, SHAPES from studio.js (loaded first).
 const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const SCREENS = ['h-setup', 'h-lobby', 'h-q', 'h-reveal', 'h-end'];
+const SCREENS = ['h-setup', 'h-lobby', 'h-pre', 'h-q', 'h-reveal', 'h-end'];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
@@ -12,7 +12,7 @@ const show = id => {
 };
 const restart = (el, name) => { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = name || ''; };
 
-const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false };
+const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true };
 const cfg = () => ({ ...DEFAULT_CFG, ...((G && G.settings) || {}) });
 let qEnd = 0, fogged = false, fogIntensity = 0, fogMode = 'normal', fogTxtT = null;
 let G = null;            // { game_id, pin, host_token, kind, title, questions, qi }
@@ -148,9 +148,25 @@ function lobby() {
 $('startBtn').onclick = () => intro(0);
 
 // ---------- 3-2-1 ก่อนเปิดข้อ ----------
+let preResolve = null;
+$('preGo').onclick = () => { if (preResolve) { const r = preResolve; preResolve = null; r(); } };
 async function intro(i) {
   stopTimers(); Sound.stopMusic();
   const q = G.questions[i], vote = G.kind === 'vote';
+  if (cfg().preview !== false) {                     // แสดงโจทย์ค้างไว้ จนกว่าผู้จัดจะกดเริ่ม ผู้เล่นถึงจะโหวตหรือตอบได้
+    send({ type: 'ready', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', preview: true });
+    $('preLabel').textContent = `${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
+    $('preTitle').textContent = q.prompt; restart($('preTitle'), 'rise .6s var(--ease) both');
+    $('preNote').textContent = q.note || ''; $('preNote').classList.toggle('hide', !q.note);
+    $('preTime').textContent = `${vote ? 'โหวต' : 'ตอบ'} ${q.duration} วินาที`;
+    $('preMax').textContent = `โหวตได้คนละ ${q.max_votes || 1} คน`; $('preMax').classList.toggle('hide', !vote || !(q.max_votes > 1));
+    $('preGo').innerHTML = `<i class="ph-fill ph-play" aria-hidden="true"></i>${vote ? 'เริ่มโหวต' : 'เริ่มตอบ'}`;
+    $('preHint').textContent = vote ? 'ผู้เล่นเห็นโจทย์แล้ว แต่ยังโหวตไม่ได้ จนกว่าจะกดปุ่มนี้' : 'ผู้เล่นเห็นโจทย์แล้ว แต่ยังตอบไม่ได้ จนกว่าจะกดปุ่มนี้';
+    show('h-pre'); Sound.music(musicOn(), .14); $('preGo').focus();
+    await new Promise(res => { preResolve = res; });
+    sfx.go();
+    return askQuestion(i);
+  }
   $('cdLabel').textContent = `${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
   $('cdTitle').textContent = q.prompt;
   $('cd').classList.remove('hide');

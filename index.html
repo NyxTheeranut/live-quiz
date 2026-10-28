@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261028205700">
+<link rel="stylesheet" href="theme.css?v=20261028210624">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261028205700"></script>
+<script src="config.js?v=20261028210624"></script>
 <style>
   main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
   section { flex: 1; display: flex; flex-direction: column; }
@@ -98,8 +98,9 @@
   <section id="s-ready" class="hide center stack">
     <div class="center-text muted" id="readyLabel">เตรียมตัว</div>
     <div class="big" id="readyTitle"></div>
+    <p class="award-note center-text" id="readyNote"></p>
     <div class="center-text"><i class="ph-fill ph-lightning ready-num" aria-hidden="true"></i></div>
-    <p class="muted center-text">ดูหน้าจอใหญ่ กำลังจะเริ่มแล้ว</p>
+    <p class="muted center-text" id="readyMsg">ดูหน้าจอใหญ่ กำลังจะเริ่มแล้ว</p>
   </section>
 
   <!-- โหวต -->
@@ -296,6 +297,8 @@ function onReady(m) {
   clearInterval(tick);
   $('readyLabel').textContent = (m.kind === 'vote' ? 'รางวัลที่ ' : 'ข้อที่ ') + (m.idx + 1);
   $('readyTitle').textContent = m.prompt;
+  $('readyNote').textContent = m.note || ''; $('readyNote').classList.toggle('hide', !m.note);
+  $('readyMsg').textContent = m.preview ? (m.kind === 'vote' ? 'ดูโจทย์ที่หน้าจอใหญ่ รอพิธีกรกดเริ่ม แล้วถึงจะโหวตได้' : 'ดูโจทย์ที่หน้าจอใหญ่ รอพิธีกรกดเริ่ม แล้วถึงจะตอบได้') : 'ดูหน้าจอใหญ่ กำลังจะเริ่มแล้ว';
   show('s-ready');
 }
 
@@ -525,7 +528,7 @@ function onEnded(m) {
   show('s-end');
 }
 </script>
-<script src="ui.js?v=20261028205700"></script>
-<script src="fx.js?v=20261028205700"></script>
+<script src="ui.js?v=20261028210624"></script>
+<script src="fx.js?v=20261028210624"></script>
 </body>
 </html>

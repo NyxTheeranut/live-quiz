@@ -9,7 +9,7 @@ const EMOJI = ['😭', '🗣️', '👑', '🦥', '🔥', '👻', '🤥', '💃'
 const LEAD_EMOJI = /^\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*\s*/u;
 const DEFAULT_TITLE = { vote: 'ประกาศรางวัลตัวตึงแห่งปี', quiz: 'ควิซวันศุกร์' };
 const DRAFT_KEY = 'quiz-draft';
-const DEFAULT_SET = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false };
+const DEFAULT_SET = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true };
 
 const SAMPLE = {
   awards: [
@@ -186,7 +186,7 @@ function setKind(k) {
 function renderSettings() {
   const r = document.querySelector(`input[name=hideAt][value="${S.settings.hideAt}"]`); if (r) r.checked = true;
   $('setCeremony').checked = !!S.settings.ceremony; $('setPhoneLive').checked = !!S.settings.phoneLive;
-  $('setMusic').checked = S.settings.music !== false; $('setHideText').checked = !!S.settings.hideText;
+  $('setPreview').checked = S.settings.preview !== false; $('setMusic').checked = S.settings.music !== false; $('setHideText').checked = !!S.settings.hideText;
   document.querySelectorAll('#settingsCard .voteOnly').forEach(e => e.classList.toggle('hide', S.kind !== 'vote'));
   document.querySelectorAll('#settingsCard .quizOnly').forEach(e => e.classList.toggle('hide', S.kind !== 'quiz'));
 }
@@ -194,6 +194,7 @@ document.querySelectorAll('input[name=hideAt]').forEach(r => r.onchange = () => 
 $('setCeremony').onchange = () => { S.settings.ceremony = $('setCeremony').checked; save(); };
 $('setPhoneLive').onchange = () => { S.settings.phoneLive = $('setPhoneLive').checked; save(); };
 $('setMusic').onchange = () => { S.settings.music = $('setMusic').checked; save(); };
+$('setPreview').onchange = () => { S.settings.preview = $('setPreview').checked; save(); };
 $('setHideText').onchange = () => { S.settings.hideText = $('setHideText').checked; save(); };
 
 function renderAll() {

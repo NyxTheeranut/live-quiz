@@ -6,7 +6,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
-  if (id !== 'h-reveal') setNext(null, false);
+  if (id !== 'h-reveal') { setNext(null, false); tapResolve = null; }
   if (id !== 'h-q') leaveFog();            // เปิดกราฟจริงคืนก็ต่อเมื่อออกจากหน้าโหวตไปแล้วเท่านั้น
   $('tbar').classList.add('hide');
   window.scrollTo(0, 0);
@@ -393,7 +393,7 @@ async function reveal() {
     $('voteResult').classList.remove('hide'); $('quizResult').classList.add('hide');
     $('stage').classList.add('pending'); $('stage').classList.remove('pop');
     $('drum').classList.remove('done'); $('drum').textContent = 'กำลังนับคะแนน...';
-    $('winner').textContent = '...'; $('winnerSub').textContent = ''; $('pod').innerHTML = ''; $('runners').innerHTML = '';
+    $('winner').textContent = '...'; $('winnerSub').textContent = ''; $('pod').innerHTML = ''; $('runners').innerHTML = ''; $('placed').innerHTML = '';
     show('h-reveal');
   }
   await host('set_phase', { p_phase: 'reveal', p_q: i });
@@ -432,22 +432,24 @@ async function revealVote(i, q, last) {
   const c = cfg();
   const steps = c.ceremony ? 22 : 16;
   let drumOn = false, spinSec = 0; for (let k = 0; k < steps; k++) spinSec += (70 + k * k * .55) / 1000;
-  if (c.ceremony && !reduceMotion) {
+  if (c.ceremony && !reduceMotion && winners.length) {
     const seq = [];
     if (ranked[2] && ranked[2].n > 0 && !winners.includes(ranked[2])) seq.push([3, ranked[2]]);
     if (ranked[1] && ranked[1].n > 0 && !winners.includes(ranked[1])) seq.push([2, ranked[1]]);
-    for (const [rk, r] of seq) {
-      $('drum').textContent = `อันดับ ${rk} ตกเป็นของ...`; $('winner').textContent = '...';
-      Sound.drumroll(1.5);
-      await wait(1500);
-      sfx.crash();
+    $('drum').textContent = 'นับคะแนนเสร็จแล้ว!'; $('winner').textContent = '...';
+    for (const [rk, r] of seq) {                                  // แต่ละอันดับรอให้ผู้จัดแตะหน้าจอก่อนเปิด
+      await waitTap(`แตะที่หน้าจอเพื่อเปิดอันดับ ${rk}`);
+      $('drum').textContent = `อันดับ ${rk} ตกเป็นของ...`; $('winner').textContent = '...'; $('winnerSub').textContent = '';
+      $('stage').classList.add('pending');
+      Sound.drumroll(1.5); await wait(1500); sfx.crash();
       $('stage').classList.remove('pending'); $('winner').textContent = q.choices[r.k]; restart($('winner'), 'pop .6s var(--spring) both');
-      $('winnerSub').textContent = `${r.n} คะแนน`; sfx.pop(); sfx.pop();
-      await wait(1800);
-      $('stage').classList.add('pending'); $('winnerSub').textContent = '';
+      $('winnerSub').textContent = `${r.n} คะแนน`; $('drum').textContent = `อันดับ ${rk}`; sfx.pop(); sfx.pop();
+      $('placed').insertAdjacentHTML('afterbegin', `<li>อันดับ ${rk}: <b>${esc(q.choices[r.k])}</b> ${r.n} คะแนน</li>`);
     }
-    $('drum').textContent = seq.length ? 'แล้วผู้ชนะคือ...' : 'กำลังเปิดซอง...'; $('winner').textContent = '...';
-    if (seq.length) { drumOn = true; Sound.drumroll(1.4 + spinSec); await wait(1400); }
+    await waitTap('แตะที่หน้าจอเพื่อเปิดผู้ชนะ');
+    $('stage').classList.add('pending'); $('winnerSub').textContent = '';
+    $('drum').textContent = 'แล้วผู้ชนะคือ...'; $('winner').textContent = '...';
+    drumOn = true; Sound.drumroll(1.4 + spinSec); await wait(1400);
   }
   // สล็อตเมชชีน: ชื่อวิ่งเร็วแล้วค่อย ๆ ช้าลง ก่อนหยุดที่ผู้ชนะ
   if (!reduceMotion && q.choices.length > 1) {
@@ -459,7 +461,7 @@ async function revealVote(i, q, last) {
     }
   }
   $('stage').classList.remove('pending'); restart($('winner'), 'pop .6s var(--spring) both');
-  $('drum').classList.add('done');
+  $('drum').classList.add('done'); $('placed').innerHTML = '';
   $('winner').textContent = winText;
   $('winnerSub').textContent = !winners.length ? '' : (winners.length > 1 ? `เสมอกัน ${topN} คะแนน` : `${topN} คะแนน จากผู้โหวต ${data.answered} คน`);
   const label = r => q.choices[r.k], sub = r => (q.groups && q.groups[r.k]) || '';
@@ -478,7 +480,14 @@ function setNext(label, on, delay = 0) {
   $('nextLabel').textContent = label;
   setNext.t = setTimeout(() => { b.disabled = false; b.classList.remove('hide'); b.focus({ preventScroll: true }); }, delay);
 }
-$('nextBtn').onclick = () => { if ($('nextBtn').disabled) return; G.qi + 1 < G.questions.length ? intro(G.qi + 1) : finish(); };
+// รอให้ผู้จัดแตะหน้าจอ (ใช้กับแต่ละขั้นของพิธีรับรางวัล)
+let tapResolve = null;
+function waitTap(label) { return new Promise(res => { tapResolve = res; setNext(label, true, 700); }); }
+$('nextBtn').onclick = () => {
+  if ($('nextBtn').disabled) return;
+  if (tapResolve) { const r = tapResolve; tapResolve = null; setNext(null, false); return r(); }   // ขั้นของพิธี: แตะเพื่อเปิดต่อ
+  G.qi + 1 < G.questions.length ? intro(G.qi + 1) : finish();                                    // จบแล้ว: แตะเพื่อไปรางวัลถัดไป
+};
 document.addEventListener('keydown', e => {            // ลูกศรขวาไปต่อได้ด้วย (Space และ Enter ทำงานกับปุ่มที่โฟกัสอยู่แล้ว)
   const b = $('nextBtn');
   if (e.key === 'ArrowRight' && !b.disabled && !b.classList.contains('hide') && !e.target.closest('input,textarea,select,dialog')) { e.preventDefault(); b.click(); }

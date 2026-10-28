@@ -84,7 +84,7 @@
 
   <section id="s-wait" class="hide center stack">
     <div class="big" id="hello"></div>
-    <p class="muted center-text">เข้าห้องแล้ว รอพิธีกรเริ่มเกมได้เลย ดูที่หน้าจอใหญ่</p>
+    <p class="muted center-text" id="waitMsg">เข้าห้องแล้ว รอพิธีกรเริ่มเกมได้เลย ดูที่หน้าจอใหญ่</p>
   </section>
 
   <section id="s-ready" class="hide center stack">
@@ -166,6 +166,7 @@
     <div class="big" id="finalRank" style="color:var(--accent)"></div>
     <p class="muted center-text" id="finalScore">ขอบคุณที่มาร่วมสนุกด้วยกัน ดูผลทั้งหมดที่หน้าจอใหญ่</p>
   </section>
+  <button type="button" class="btn ghost small hide" id="leaveBtn" style="align-self:center;margin-top:16px"><i class="ph-bold ph-arrow-counter-clockwise" aria-hidden="true"></i>ออกจากเกมนี้</button>
 </main>
 
 <script>
@@ -173,11 +174,17 @@ const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const SCREENS = ['s-join', 's-wait', 's-ready', 's-vote', 's-voted', 's-vresult', 's-q', 's-locked', 's-result', 's-end'];
-const show = id => SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+let curScreen = 's-join';
+const show = id => {
+  curScreen = id;
+  SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+  $('leaveBtn').classList.toggle('hide', id === 's-join');
+};
 const LETTERS = 'กขคง';
 const SHAPES = ['triangle', 'diamond', 'circle', 'square'];
 
 let me = null;          // { player_id, game_id, pin, nick }
+let chan = null, pollT = null, finished = false;
 let cur = null;         // คำถามที่เปิดอยู่ (ข้อความล่าสุดจากโฮสต์)
 let tick = null, answeredIdx = -1, sel = -1, lastTally = null, timeUp = false;
 const myVote = {};      // idx -> ตัวเลือกที่โหวตไว้
@@ -202,17 +209,37 @@ $('joinBtn').onclick = async () => {
 
 function start() {
   $('hello').textContent = 'สวัสดี ' + me.nick;
+  $('waitMsg').textContent = 'เข้าห้องแล้ว รอพิธีกรเริ่มเกมได้เลย ดูที่หน้าจอใหญ่';
+  finished = false;
   show('s-wait');
-  db.channel('quiz-' + me.pin, { config: { broadcast: { self: false } } })
+  chan = db.channel('quiz-' + me.pin, { config: { broadcast: { self: false } } })
     .on('broadcast', { event: 'state' }, ({ payload }) => handle(payload))
     .subscribe(status => { if (status === 'SUBSCRIBED') resync(); });
+  // ตาข่ายนิรภัย: ถึงข้อความสดจะหลุด ก็ยังตามทันจากฐานข้อมูลทุก 3 วินาที
+  clearInterval(pollT); pollT = setInterval(resync, 3000);
 }
+
+function leave() {
+  clearInterval(pollT); clearInterval(tick);
+  try { if (chan) db.removeChannel(chan); } catch (e) {}
+  try { localStorage.removeItem('quiz-me'); } catch (e) {}
+  location.reload();
+}
+$('leaveBtn').onclick = () => { if (finished || confirm('ออกจากเกมนี้ใช่ไหม')) leave(); };
 
 // ทุกครั้งที่ต่อใหม่ อ่านสถานะล่าสุดจากฐานข้อมูล เพื่อให้เครื่องที่หลุดเน็ตตามทันเอง
 async function resync() {
-  const { data: g } = await db.from('games')
+  if (finished) return;
+  const { data: g, error } = await db.from('games')
     .select('kind,phase,current_q,q_started_at').eq('id', me.game_id).single();
-  if (!g) return;
+  if (!g) {
+    if (error && /0 rows|PGRST116|JSON object/i.test(error.message || error.details || '')) {   // เกมถูกลบไปแล้ว
+      try { localStorage.removeItem('quiz-me'); } catch (e) {}
+      $('waitMsg').textContent = 'ไม่พบเกมนี้แล้ว กดออกจากเกมเพื่อเข้าห้องใหม่';
+      if (curScreen !== 's-end') show('s-wait');
+    }
+    return;
+  }
   if (g.phase === 'question') {
     const { data: q } = await db.from('questions')
       .select('idx,prompt,note,choices,groups,duration_s').eq('game_id', me.game_id).eq('idx', g.current_q).single();
@@ -221,7 +248,11 @@ async function resync() {
     handle({ type: 'question', idx: q.idx, kind: g.kind, prompt: q.prompt, note: q.note || '', choices: q.choices,
              groups: q.groups, duration: Math.max(0, Math.min(q.duration_s, q.duration_s - elapsed)) });
   } else if (g.phase === 'ended') {
-    show('s-end');
+    if (curScreen !== 's-end') onEnded({ aborted: true });   // พลาดข้อความจบเกม หรือเกมถูกปิดไปแล้ว
+  } else if (g.phase === 'reveal' && ['s-vote', 's-voted', 's-q', 's-locked'].includes(curScreen)) {
+    clearInterval(tick);
+    $('waitMsg').textContent = 'หมดเวลาแล้ว กำลังประกาศผล ดูที่หน้าจอใหญ่';
+    show('s-wait');
   }
 }
 
@@ -425,7 +456,7 @@ function onQuizReveal(m) {
 }
 
 function onEnded(m) {
-  clearInterval(tick);
+  clearInterval(tick); clearInterval(pollT); finished = true;
   $('endTitle').textContent = m.aborted ? 'พิธีกรปิดเกมนี้แล้ว' : 'จบเกมแล้ว';
   if (m.aborted) { $('finalRank').textContent = ''; $('finalScore').textContent = 'เกมนี้ถูกปิดโดยผู้จัด รอรอบใหม่ได้เลย'; try { localStorage.removeItem('quiz-me'); } catch (e) {} return show('s-end'); }
   $('finalScore').textContent = 'ขอบคุณที่มาร่วมสนุกด้วยกัน ดูผลทั้งหมดที่หน้าจอใหญ่';

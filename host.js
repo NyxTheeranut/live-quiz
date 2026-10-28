@@ -11,6 +11,9 @@ const show = id => {
 };
 const restart = (el, name) => { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = name || ''; };
 
+const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false };
+const cfg = () => ({ ...DEFAULT_CFG, ...((G && G.settings) || {}) });
+let qEnd = 0, fogged = false, fogIntensity = 0, fogMode = 'normal', susT = null, fogTxtT = null;
 let G = null;            // { game_id, pin, host_token, kind, title, questions, qi }
 let channel = null, poll = null, tick = null, revealing = false, lastTally = '', lastTallyAt = 0, view = 'person';
 
@@ -18,32 +21,16 @@ const saveGame = () => { try { localStorage.setItem('quiz-host', JSON.stringify(
 const stopTimers = () => { clearInterval(poll); clearInterval(tick); };
 const host = (fn, args) => db.rpc(fn, { p_game: G.game_id, p_token: G.host_token, ...args });
 
-// ---------- เสียงเอฟเฟกต์ (สังเคราะห์เอง ไม่ต้องโหลดไฟล์) ----------
-let muted = false, ac = null;
-try { muted = localStorage.getItem('quiz-mute') === '1'; } catch (e) {}
+// ---------- เสียง (ดู sound.js) ----------
+const sfx = Sound.sfx;
+const musicOn = () => cfg().music !== false;
 function syncMute() {
-  $('muteBtn').setAttribute('aria-pressed', String(!muted));
-  $('muteBtn').firstElementChild.className = 'ph-bold ' + (muted ? 'ph-speaker-slash' : 'ph-speaker-high');
+  const m = Sound.isMuted();
+  $('muteBtn').setAttribute('aria-pressed', String(!m));
+  $('muteBtn').firstElementChild.className = 'ph-bold ' + (m ? 'ph-speaker-slash' : 'ph-speaker-high');
 }
-$('muteBtn').onclick = () => { muted = !muted; try { localStorage.setItem('quiz-mute', muted ? '1' : '0'); } catch (e) {} syncMute(); };
+$('muteBtn').onclick = () => { Sound.setMuted(!Sound.isMuted()); syncMute(); };
 syncMute();
-function tone(f, d = .12, type = 'sine', vol = .12, at = 0) {
-  if (muted) return;
-  try {
-    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-    const t = ac.currentTime + at, o = ac.createOscillator(), g = ac.createGain();
-    o.type = type; o.frequency.value = f;
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
-    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d + .03);
-  } catch (e) {}
-}
-const sfx = {
-  tick: () => tone(660, .1, 'square', .05),
-  go: () => { tone(880, .12, 'triangle', .12); tone(1320, .25, 'triangle', .12, .1); },
-  blip: () => tone(300 + Math.random() * 500, .05, 'square', .035),
-  pop: () => tone(520 + Math.random() * 300, .08, 'sine', .08),
-  win: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .4, 'triangle', .13, i * .11))
-};
 
 // ---------- พลุกระดาษ ----------
 function confetti() {
@@ -119,7 +106,7 @@ $('createBtn').onclick = async () => {
   const { data, error } = await db.rpc('create_game', { p_title: b.title, p_questions: b.questions, p_kind: b.kind });
   $('createBtn').disabled = false;
   if (error) return void ($('setupErr').textContent = error.message);
-  G = { ...data, title: b.title, kind: b.kind, questions: b.questions, qi: -1 };
+  G = { ...data, title: b.title, kind: b.kind, questions: b.questions, settings: b.settings, qi: -1 };
   saveGame(); openChannel(); lobby();
 };
 
@@ -133,6 +120,7 @@ function lobby() {
   $('names').innerHTML = '';
   show('h-lobby');
   stopTimers();
+  Sound.music(musicOn(), .18);
   const seen = new Set();
   const refresh = async () => {
     const { data } = await db.from('players').select('nickname').eq('game_id', G.game_id).order('joined_at');
@@ -156,7 +144,7 @@ $('startBtn').onclick = () => intro(0);
 
 // ---------- 3-2-1 ก่อนเปิดข้อ ----------
 async function intro(i) {
-  stopTimers();
+  stopTimers(); Sound.stopMusic();
   const q = G.questions[i], vote = G.kind === 'vote';
   $('cdLabel').textContent = `${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
   $('cdTitle').textContent = q.prompt;
@@ -172,12 +160,12 @@ async function intro(i) {
 
 // ---------- 3. คำถาม / โหวต ----------
 async function askQuestion(i) {
-  stopTimers(); revealing = false; lastTally = ''; lastTallyAt = 0;
+  stopTimers(); revealing = false; lastTally = ''; lastTallyAt = 0; leaveFog();
   const q = G.questions[i], vote = G.kind === 'vote';
   const { error } = await host('set_phase', { p_phase: 'question', p_q: i });
   if (error) return alert(error.message);
   G.qi = i; saveGame();
-  await send({ type: 'question', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', choices: q.choices, groups: q.groups || null, duration: q.duration });
+  await send({ type: 'question', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', choices: q.choices, groups: q.groups || null, hideText: !vote && !!(q.groups && q.groups.hideText), duration: q.duration });
 
   $('qnum').textContent = `${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
   $('qprompt').textContent = q.prompt; restart($('qprompt'), 'rise .6s var(--ease) both');
@@ -187,13 +175,18 @@ async function askQuestion(i) {
   $('voteLive').classList.toggle('hide', !vote);
   $('quizLive').classList.toggle('hide', vote);
   if (vote) { resetChart(); paintVote({}, 0); }
-  else $('qchoices').innerHTML = q.choices.map((c, k) => c
-    ? `<div class="tile tint${k + 1}" style="animation-delay:${k * 90}ms"><i class="ph-fill ph-${SHAPES[k]}" aria-hidden="true"></i><span>${esc(c)}</span></div>` : '').join('');
+  else {
+    $('qchoices').className = 'tiles' + (q.choices.length > 4 ? ' many' : '');
+    $('qchoices').innerHTML = q.choices.map((c, k) => c
+      ? `<div class="tile tint${k % 4 + 1}" style="animation-delay:${k * 80}ms"><i class="ph-fill ph-${SHAPES[k % 4]} sh" aria-hidden="true"></i><span class="ltr" aria-hidden="true">${LETTERS[k]}</span><span>${esc(c)}</span></div>` : '').join('');
+  }
   show('h-q');
+  Sound.music(musicOn(), .24);
+  if (vote && cfg().hideAt === '0') enterFog();
 
   const bar = $('tbar'); bar.classList.remove('hide', 'low');
   bar.style.setProperty('--dur', q.duration + 's'); restart(bar.firstElementChild);
-  const end = Date.now() + q.duration * 1000; let lastS = -1;
+  const end = Date.now() + q.duration * 1000; qEnd = end; let lastS = -1;
   tick = setInterval(() => {
     const s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
     $('qtimer').textContent = s;
@@ -201,6 +194,7 @@ async function askQuestion(i) {
     bar.classList.toggle('low', s <= 10);
     if (s !== lastS && s <= 5 && s > 0) sfx.tick();
     lastS = s;
+    Sound.setIntensity(.24 + .66 * (1 - Math.max(0, end - Date.now()) / (q.duration * 1000)) + (s <= 10 ? .1 : 0));
     if (s === 0) { clearInterval(tick); setTimeout(reveal, 1200); }   // รอคำตอบที่ยังอยู่บนเครือข่าย
   }, 250);
   poll = setInterval(async () => {
@@ -209,7 +203,12 @@ async function askQuestion(i) {
     const noun = vote ? 'โหวต' : 'ตอบ';
     $('qans').textContent = data.answered ? `${noun}แล้ว ${data.answered} จาก ${data.players} คน` : `ยังไม่มีใคร${noun}`;
     $('qbar').style.transform = `scaleX(${data.players ? Math.min(1, data.answered / data.players) : 0})`;
-    if (vote) { paintVote(data.dist, data.answered); broadcastTally(i, data); }
+    if (vote) {
+      paintVote(data.dist, data.answered); broadcastTally(i, data);
+      const c = cfg();
+      if (!fogged && c.hideAt !== 'off' && data.players > 0 && data.answered / data.players * 100 >= +c.hideAt) enterFog();
+      if (fogged) updateFog(data.answered, data.players);
+    }
     else if (data.players > 0 && data.answered >= data.players) reveal();   // ควิซ: ตอบครบก็เฉลยเลย
   }, 1000);
 }
@@ -218,11 +217,59 @@ $('closeBtn').onclick = () => reveal();
 
 // ส่งอันดับสดให้มือถือเป็นระยะ (เฉพาะเมื่อเปลี่ยน และห่างกันอย่างน้อย 2 วินาที)
 function broadcastTally(i, data) {
-  const top = Object.entries(data.dist).map(([k, n]) => [+k, n]).sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 5);
-  const sig = JSON.stringify([top, data.answered]);
+  const live = cfg().phoneLive;
+  const top = live ? Object.entries(data.dist).map(([k, n]) => [+k, n]).sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 5) : [];
+  const sig = JSON.stringify([top, data.answered, data.players]);
   if (sig === lastTally || Date.now() - lastTallyAt < 2000) return;
   lastTally = sig; lastTallyAt = Date.now();
-  send({ type: 'tally', idx: i, answered: data.answered, players: data.players, top });
+  send({ type: 'tally', idx: i, answered: data.answered, players: data.players, live, top });
+}
+
+// ---------- โหมดลุ้น: หมอกบังอันดับ ----------
+// ชื่อที่กระพริบสุ่มไม่เกี่ยวกับคะแนนจริงเลย จึงไม่มีทางรู้ใครนำ แค่สร้างบรรยากาศ
+const FOG_LINES = {
+  normal: ['คะแนนถูกซ่อนไว้แล้ว', 'มีคนกำลังนำอยู่...', 'พลิกเกมได้ทุกเมื่อ', 'ใครกันนะที่จะได้มงกุฎ?', 'ห้ามกะพริบตา!'],
+  near: ['ใกล้ครบแล้ว!', 'ใครยังไม่โหวตรีบเลย!', 'อีกไม่กี่คนเท่านั้น...'],
+  last: ['ใกล้หมดเวลาแล้ว!', 'หัวใจจะวาย!', 'ลุ้นสุดตัว!']
+};
+function sparkle() {
+  const els = $('suspects').children;
+  if (!els.length) return;
+  [...$('suspects').querySelectorAll('.lit')].forEach(e => e.classList.remove('lit'));
+  const n = Math.min(3, 1 + Math.floor(els.length / 20) + (fogIntensity > .6 ? 1 : 0));
+  for (let k = 0; k < n; k++) els[(Math.random() * els.length) | 0].classList.add('lit');
+  sfx.blip();
+  susT = setTimeout(sparkle, reduceMotion ? 1600 : 720 - 480 * fogIntensity);
+}
+function enterFog() {
+  fogged = true; fogMode = 'normal'; fogIntensity = 0;
+  const q = G.questions[G.qi];
+  $('chart').classList.add('hide'); $('chartEmpty').classList.add('hide'); $('viewSeg').classList.add('hide');
+  $('fog').classList.remove('hide', 'final'); restart($('fog'), 'rise .6s var(--ease) both');
+  $('suspects').innerHTML = q.choices.map((c, k) => `<span class="sus tint${k % 4 + 1}">${esc(c)}</span>`).join('');
+  $('fogText').textContent = FOG_LINES.normal[0];
+  sfx.fog();
+  clearTimeout(susT); sparkle();
+  let li = 0; clearInterval(fogTxtT);
+  fogTxtT = setInterval(() => {
+    const lines = FOG_LINES[fogMode]; li = (li + 1) % lines.length;
+    $('fogText').textContent = lines[li]; restart($('fogText'), 'rise .5s var(--ease) both');
+  }, 3200);
+}
+function updateFog(answered, players) {
+  const pct = players ? Math.min(1, answered / players) : 0, left = Math.max(0, (qEnd - Date.now()) / 1000);
+  const dur = G.questions[G.qi].duration;
+  fogIntensity = Math.max(pct, 1 - left / dur);
+  $('orbPct').textContent = Math.round(pct * 100) + '%';
+  $('fogSub').textContent = `โหวตแล้ว ${answered} จาก ${players} คน`;
+  $('orb').style.setProperty('--beat', (1.3 - .8 * fogIntensity).toFixed(2) + 's');
+  const mode = left <= 10 ? 'last' : pct >= .9 ? 'near' : 'normal';
+  if (mode !== fogMode) { fogMode = mode; $('fogText').textContent = FOG_LINES[mode][0]; restart($('fogText'), 'rise .5s var(--ease) both'); }
+  $('fog').classList.toggle('final', mode === 'last');
+}
+function leaveFog() {
+  clearTimeout(susT); clearInterval(fogTxtT); fogged = false;
+  $('fog').classList.add('hide'); $('chart').classList.remove('hide'); $('viewSeg').classList.remove('hide');
 }
 
 // ---------- กราฟคะแนนสด (แถวเลื่อนขึ้นลงตามอันดับ) ----------
@@ -291,6 +338,7 @@ async function reveal() {
   if (revealing) return; revealing = true;
   stopTimers();
   const i = G.qi, q = G.questions[i];
+  leaveFog(); Sound.stopMusic(.25);
   await host('set_phase', { p_phase: 'reveal', p_q: i });
   $('rprompt').textContent = q.prompt;
   const last = i + 1 >= G.questions.length;
@@ -305,12 +353,12 @@ async function reveal() {
   const total = Object.values(data.dist).reduce((a, b) => a + b, 0) || 1;
   $('voteResult').classList.add('hide'); $('quizResult').classList.remove('hide');
   $('bars').innerHTML = q.choices.map((c, k) => !c ? '' : `
-    <div class="qb tint${k + 1} ${k === data.correct ? '' : 'wrong'}"><i class="ph-fill ph-${SHAPES[k]}" aria-hidden="true"></i>
+    <div class="qb tint${k % 4 + 1} ${k === data.correct ? '' : 'wrong'}"><i class="ph-fill ph-${SHAPES[k % 4]}" aria-hidden="true"></i><span class="ltr" aria-hidden="true">${LETTERS[k]}</span>
       <span>${esc(c)}</span><b>${data.dist[k] || 0}${k === data.correct ? ' (ถูก)' : ''}</b></div>`).join('');
   renderPodium($('qpod'), board.filter(r => r[1] > 0).map(r => ({ label: r[0], sub: r[1] + ' คะแนน', n: r[1] })));
   $('nextBtn').innerHTML = last ? 'ดูผลรวม' : 'ข้อถัดไป'; $('nextBtn').disabled = false;
   show('h-reveal');
-  sfx.win(); confetti();
+  sfx.crash(); sfx.win(); confetti();
 }
 
 async function revealVote(i, q, last) {
@@ -329,9 +377,30 @@ async function revealVote(i, q, last) {
   $('pod').innerHTML = ''; $('runners').innerHTML = '';
   show('h-reveal');
 
+  // พิธีรับรางวัล: เปิดอันดับ 3 แล้วอันดับ 2 ทีละคน ก่อนเฉลยผู้ชนะ
+  const c = cfg();
+  const steps = c.ceremony ? 22 : 16;
+  let drumOn = false, spinSec = 0; for (let k = 0; k < steps; k++) spinSec += (70 + k * k * .55) / 1000;
+  if (c.ceremony && !reduceMotion) {
+    const seq = [];
+    if (ranked[2] && ranked[2].n > 0 && !winners.includes(ranked[2])) seq.push([3, ranked[2]]);
+    if (ranked[1] && ranked[1].n > 0 && !winners.includes(ranked[1])) seq.push([2, ranked[1]]);
+    for (const [rk, r] of seq) {
+      $('drum').textContent = `อันดับ ${rk} ตกเป็นของ...`; $('winner').textContent = '...';
+      Sound.drumroll(1.5);
+      await wait(1500);
+      sfx.crash();
+      $('stage').classList.remove('pending'); $('winner').textContent = q.choices[r.k]; restart($('winner'), 'pop .6s var(--spring) both');
+      $('winnerSub').textContent = `${r.n} คะแนน`; sfx.pop(); sfx.pop();
+      await wait(1800);
+      $('stage').classList.add('pending'); $('winnerSub').textContent = '';
+    }
+    $('drum').textContent = seq.length ? 'แล้วผู้ชนะคือ...' : 'กำลังเปิดซอง...'; $('winner').textContent = '...';
+    if (seq.length) { drumOn = true; Sound.drumroll(1.4 + spinSec); await wait(1400); }
+  }
   // สล็อตเมชชีน: ชื่อวิ่งเร็วแล้วค่อย ๆ ช้าลง ก่อนหยุดที่ผู้ชนะ
   if (!reduceMotion && q.choices.length > 1) {
-    const steps = 16;
+    if (!drumOn) Sound.drumroll(spinSec);
     for (let k = 0; k < steps; k++) {
       $('winner').textContent = q.choices[(Math.random() * q.choices.length) | 0];
       sfx.blip();
@@ -347,13 +416,14 @@ async function revealVote(i, q, last) {
   $('runners').innerHTML = ranked.filter(r => r.n > 0).slice(3, 6)
     .map((r, k) => `<li style="animation-delay:${.9 + k * .12}s"><span class="aw">${k + 4}. ${esc(label(r))}</span><b>${r.n}</b></li>`).join('');
   $('nextBtn').disabled = false;
-  if (winners.length) { sfx.win(); confetti(); }
+  if (winners.length) { sfx.crash(); sfx.win(); confetti(); } else Sound.stopDrum();
   await send({ type: 'reveal', kind: 'vote', idx: i, dist: data.dist, answered: data.answered });
 }
 $('nextBtn').onclick = () => G.qi + 1 < G.questions.length ? intro(G.qi + 1) : finish();
 
 // ---------- 5. จบเกม ----------
 async function finish() {
+  Sound.stopMusic();
   await host('set_phase', { p_phase: 'ended', p_q: G.qi });
   if (G.kind === 'vote') {
     const { data } = await host('host_summary', {});

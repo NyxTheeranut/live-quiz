@@ -1,18 +1,16 @@
 -- =====================================================================
 -- Live quiz / vote: database schema for Supabase
 -- Run once: Supabase dashboard > SQL Editor > New query > paste > Run
--- Safe to re-run (drops and recreates the quiz objects, and ALL game data).
+-- Safe to re-run any time: it never deletes game data. Functions are replaced in place,
+-- tables are only created if missing. You do NOT need to run it before each game;
+-- only run it again when a new version of this file asks for it.
 -- Two game kinds: 'quiz' (one right answer, speed points) and
 -- 'vote' (many nominees in groups, no right answer, live tally).
 -- =====================================================================
 
-drop function if exists create_game, join_game, set_phase, submit_answer,
-                        host_stats, host_reveal, host_summary, get_results cascade;
-drop table if exists answers, players, answer_keys, questions, games cascade;
-
 -- ---------- Tables ---------------------------------------------------
 
-create table games (
+create table if not exists games (
   id            uuid primary key default gen_random_uuid(),
   pin           text unique not null,                 -- 6 digits players type in
   host_token    uuid not null default gen_random_uuid(), -- secret, only the host knows it
@@ -25,26 +23,26 @@ create table games (
   created_at    timestamptz not null default now()
 );
 
-create table questions (
+create table if not exists questions (
   game_id     uuid not null references games(id) on delete cascade,
   idx         int  not null,
   prompt      text not null,
   note        text,                                    -- vote: the award's one-line definition
   choices     jsonb not null,                          -- ["Bangkok","Chiang Mai"] or nominee names
-  groups      jsonb,                                   -- vote: group name per choice, same order
+  groups      jsonb,                                   -- vote: group name per choice (array). quiz: optional {"hideText":true}
   duration_s  int  not null default 20 check (duration_s between 5 and 600),
   primary key (game_id, idx)
 );
 
 -- Correct answers (quiz only) live in a table the public can never read.
-create table answer_keys (
+create table if not exists answer_keys (
   game_id  uuid not null references games(id) on delete cascade,
   idx      int  not null,
   correct  int  not null check (correct between 0 and 199),
   primary key (game_id, idx)
 );
 
-create table players (
+create table if not exists players (
   id         uuid primary key default gen_random_uuid(),  -- acts as the player's secret
   game_id    uuid not null references games(id) on delete cascade,
   nickname   text not null check (char_length(nickname) between 1 and 20),
@@ -52,7 +50,7 @@ create table players (
   unique (game_id, nickname)
 );
 
-create table answers (
+create table if not exists answers (
   player_id    uuid not null references players(id) on delete cascade,
   game_id      uuid not null references games(id) on delete cascade,
   idx          int  not null,
@@ -63,7 +61,13 @@ create table answers (
   answered_at  timestamptz not null default now(),
   primary key (player_id, idx)                  -- one answer (or one vote) per player per question
 );
-create index answers_game_idx on answers (game_id, idx);
+create index if not exists answers_game_idx on answers (game_id, idx);
+
+-- Upgrade older databases in place (no-ops on a fresh install)
+alter table games     add column if not exists kind text not null default 'quiz';
+alter table questions add column if not exists note text;
+alter table questions add column if not exists groups jsonb;
+alter table answers   alter column is_correct drop not null;
 
 -- ---------- Who can read what ----------------------------------------
 -- The browser uses the public (publishable / anon) key, so lock tables down
@@ -81,9 +85,12 @@ grant select (id, pin, title, kind, phase, current_q, q_started_at) on games to 
 grant select on questions to anon, authenticated;
 grant select (game_id, nickname, joined_at) on players to anon, authenticated;
 
+drop policy if exists games_read on games;
 create policy games_read   on games   for select using (true);
+drop policy if exists players_read on players;
 create policy players_read on players for select using (true);
 -- A question becomes readable only once the host has opened it (no peeking ahead)
+drop policy if exists questions_read on questions;
 create policy questions_read on questions for select using (
   exists (select 1 from games g where g.id = questions.game_id and g.current_q >= questions.idx)
 );
@@ -94,7 +101,7 @@ create policy questions_read on questions for select using (
 -- Host: create a game from a JSON array of questions.
 -- quiz: [{ "prompt": "...", "choices": ["A","B","C","D"], "correct": 0, "duration": 20 }, ...]
 -- vote: [{ "prompt": "...", "note": "...", "choices": ["name",...], "groups": ["team",...], "duration": 90 }, ...]
-create function create_game(p_title text, p_questions jsonb, p_kind text default 'quiz')
+create or replace function create_game(p_title text, p_questions jsonb, p_kind text default 'quiz')
 returns json language plpgsql security definer set search_path = public as $$
 declare
   g games; q jsonb; i int := 0; new_pin text;
@@ -125,7 +132,7 @@ begin
 end $$;
 
 -- Host: move the game to a new phase. Stamps server time when a question opens.
-create function set_phase(p_game uuid, p_token uuid, p_phase text, p_q int)
+create or replace function set_phase(p_game uuid, p_token uuid, p_phase text, p_q int)
 returns timestamptz language plpgsql security definer set search_path = public as $$
 declare ts timestamptz;
 begin
@@ -140,7 +147,7 @@ begin
 end $$;
 
 -- Player: join with PIN + nickname. Returns the player's id (keep it secret).
-create function join_game(p_pin text, p_nick text)
+create or replace function join_game(p_pin text, p_nick text)
 returns json language plpgsql security definer set search_path = public as $$
 declare g games; pid uuid;
 begin
@@ -160,7 +167,7 @@ end $$;
 -- Quiz: time and score are computed on the server; one answer only.
 --   Score: correct = 500..1000 (faster = more), wrong = 0.
 -- Vote: no score; a player may change their vote while the question is open.
-create function submit_answer(p_player uuid, p_idx int, p_choice int)
+create or replace function submit_answer(p_player uuid, p_idx int, p_choice int)
 returns json language plpgsql security definer set search_path = public as $$
 declare g games; dur int; n int; ms int; ok boolean; pts int;
 begin
@@ -195,7 +202,7 @@ exception when unique_violation then
 end $$;
 
 -- Host: live counter and per-choice tally while a question is open.
-create function host_stats(p_game uuid, p_token uuid, p_idx int)
+create or replace function host_stats(p_game uuid, p_token uuid, p_idx int)
 returns json language plpgsql security definer set search_path = public as $$
 begin
   perform 1 from games where id = p_game and host_token = p_token;
@@ -210,7 +217,7 @@ end $$;
 
 -- Host (quiz): correct answer, answer distribution and full scoreboard.
 -- For a vote game the board is empty; use host_stats / host_summary instead.
-create function host_reveal(p_game uuid, p_token uuid, p_idx int)
+create or replace function host_reveal(p_game uuid, p_token uuid, p_idx int)
 returns json language plpgsql security definer set search_path = public as $$
 declare res json; gk text;
 begin
@@ -233,7 +240,7 @@ begin
 end $$;
 
 -- Host (vote): tally for every award at once, for the final summary.
-create function host_summary(p_game uuid, p_token uuid)
+create or replace function host_summary(p_game uuid, p_token uuid)
 returns json language plpgsql security definer set search_path = public as $$
 begin
   perform 1 from games where id = p_game and host_token = p_token;
@@ -249,7 +256,7 @@ end $$;
 
 -- Host / Google Sheets: one row per player per answered question.
 -- choice / correct are the actual option text (nominee name for votes).
-create function get_results(p_pin text, p_token uuid)
+create or replace function get_results(p_pin text, p_token uuid)
 returns table (nickname text, question int, prompt text, choice text, correct text,
                is_correct boolean, elapsed_ms int, points int)
 language plpgsql security definer set search_path = public as $$

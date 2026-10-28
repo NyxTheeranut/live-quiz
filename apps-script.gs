@@ -13,7 +13,7 @@
  * Sheet tabs (row 1 is a header and is skipped):
  *   Awards    A: award name   B: definition   C: seconds to vote (optional)
  *   Nominees  A: name         B: group (team / department)
- *   Quiz      A: question  B..E: choices  F: correct (A-D or ก-ง)  G: seconds   (quiz mode only)
+ *   Quiz      A: question  B..I: 2-8 choices  then correct letter (A-H or ก ข ค ง จ ฉ ช ซ)  then seconds   (quiz mode only)
  */
 const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_XXXXXXXXXXXXXXXXXXXXXXXX'; // same key as config.js
@@ -29,7 +29,7 @@ function doGet(e) {
     return sh.getRange(2, 1, sh.getLastRow() - 1, width).getDisplayValues()
       .filter(r => String(r[0]).trim() !== '');
   };
-  return out({ awards: tab('Awards', 3), nominees: tab('Nominees', 2), quiz: tab('Quiz', 7) });
+  return out({ awards: tab('Awards', 3), nominees: tab('Nominees', 2), quiz: tab('Quiz', 11) });
 }
 
 function onOpen() {

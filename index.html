@@ -60,6 +60,13 @@
   .qgrid .item { min-height: 84px; font: 800 1.2rem/1.3 var(--font-display); background: var(--tint); border-color: transparent; color: var(--on-c); box-shadow: 0 5px 0 rgba(0, 0, 0, .28); animation: pop .4s var(--spring) both; }
   .qgrid .item:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, .28); }
   .qgrid .item i { font-size: 1.8rem; flex: none; }
+  .progline { display: flex; align-items: center; gap: 10px; font: 700 1.1rem var(--font-display); }
+  .beatico { color: var(--c1); font-size: 1.7rem; animation: bump 1s ease-in-out infinite; }
+  .qgrid .ltr { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(0, 0, 0, .18); font: 800 1.05rem var(--font-display); }
+  .qgrid.shapes { grid-template-columns: 1fr 1fr; }
+  .qgrid.shapes .item { flex-direction: column; justify-content: center; gap: 4px; min-height: 132px; }
+  .qgrid.shapes .item i { font-size: 2.6rem; }
+  .qgrid.shapes .bigltr { font: 800 2.2rem/1 var(--font-display); }
   .ready-num { font: 800 5rem/1 var(--font-display); color: var(--accent); animation: bob 1s ease-in-out infinite; }
   .result { padding: 32px 20px; border-radius: var(--r-card); text-align: center; border: 2px solid var(--line); background: var(--surface); }
   .result.good { border-color: var(--accent); }
@@ -123,8 +130,13 @@
       <div class="big" id="votedName"></div>
     </div>
     <div class="live">
-      <h3>คะแนนสดตอนนี้</h3>
+      <h3 id="liveHead">ลุ้นไปพร้อมกัน</h3>
       <div id="liveTop" role="status"></div>
+      <div id="liveProg" class="hide">
+        <div class="progline"><i class="ph-fill ph-lightning beatico" aria-hidden="true"></i><span>เพื่อนโหวตแล้ว <b id="progNum" class="num"></b> คน</span></div>
+        <div class="lrow"><div class="b"><i id="progBar" style="transform:scaleX(0)"></i></div></div>
+        <p class="muted" style="margin-top:10px">ผลจะประกาศที่หน้าจอใหญ่ ใครจะได้มงกุฎนะ?</p>
+      </div>
       <p id="liveEmpty" class="muted">รอผลจากหน้าจอใหญ่...</p>
     </div>
     <button class="btn ghost block" id="changeBtn"><i class="ph-bold ph-arrow-counter-clockwise" aria-hidden="true"></i>เปลี่ยนใจ</button>
@@ -145,6 +157,7 @@
   <section id="s-q" class="hide">
     <div class="vhead"><span></span><span class="timer" id="timer"></span></div>
     <p class="prompt" id="prompt"></p>
+    <p id="qhint" class="muted center-text hide" style="margin:0 0 12px">ดูตัวเลือกที่หน้าจอใหญ่ แล้วกดปุ่มสีที่ใช่</p>
     <div class="qgrid" id="choices"></div>
   </section>
 
@@ -180,7 +193,7 @@ const show = id => {
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
   $('leaveBtn').classList.toggle('hide', id === 's-join');
 };
-const LETTERS = 'กขคง';
+const LETTERS = 'กขคงจฉชซ';
 const SHAPES = ['triangle', 'diamond', 'circle', 'square'];
 
 let me = null;          // { player_id, game_id, pin, nick }
@@ -291,16 +304,24 @@ function onQuestion(m) {
   clearInterval(tick);
   if (answeredIdx === m.idx) return show('s-locked');
   $('lockedMsg').textContent = 'รอเฉลยนะ';
+  const hide = !!m.hideText || !!(m.groups && !Array.isArray(m.groups) && m.groups.hideText);
   $('prompt').textContent = m.prompt;
+  $('qhint').classList.toggle('hide', !hide);
+  $('choices').className = 'qgrid' + (hide ? ' shapes' : '');
   $('choices').innerHTML = '';
   m.choices.forEach((text, i) => {
     if (!text) return;
     const b = document.createElement('button');
-    b.className = 'item tint' + (i + 1);
+    b.className = 'item tint' + (i % 4 + 1);
     b.style.animationDelay = i * 70 + 'ms';
-    b.setAttribute('aria-label', 'ตัวเลือก ' + LETTERS[i] + ' ' + text);
-    b.innerHTML = `<i class="ph-fill ph-${SHAPES[i]}" aria-hidden="true"></i><span></span>`;
-    b.lastChild.textContent = text;
+    if (hide) {
+      b.setAttribute('aria-label', 'ตัวเลือก ' + LETTERS[i]);
+      b.innerHTML = `<i class="ph-fill ph-${SHAPES[i % 4]}" aria-hidden="true"></i><span class="bigltr" aria-hidden="true">${LETTERS[i]}</span>`;
+    } else {
+      b.setAttribute('aria-label', 'ตัวเลือก ' + LETTERS[i] + ' ' + text);
+      b.innerHTML = `<i class="ph-fill ph-${SHAPES[i % 4]}" aria-hidden="true"></i><span class="ltr" aria-hidden="true">${LETTERS[i]}</span><span></span>`;
+      b.lastChild.textContent = text;
+    }
     b.onclick = () => answerQuiz(m.idx, i);
     $('choices').appendChild(b);
   });
@@ -403,7 +424,19 @@ function onTally(m) {
   lastTally = m; paintLive();
 }
 function paintLive() {
-  const top = lastTally ? lastTally.top : [];
+  const live = !!(lastTally && lastTally.live);
+  $('liveHead').textContent = live ? 'คะแนนสดตอนนี้' : 'ลุ้นไปพร้อมกัน';
+  $('liveTop').classList.toggle('hide', !live);
+  $('liveProg').classList.toggle('hide', live || !lastTally);
+  if (!live) {
+    $('liveEmpty').classList.toggle('hide', !!lastTally);
+    if (lastTally) {
+      $('progNum').textContent = `${lastTally.answered} จาก ${lastTally.players}`;
+      $('progBar').style.transform = `scaleX(${lastTally.players ? Math.min(1, lastTally.answered / lastTally.players) : 0})`;
+    }
+    return;
+  }
+  const top = lastTally.top;
   $('liveEmpty').classList.toggle('hide', top.length > 0);
   const max = top.length ? top[0][1] : 1;
   $('liveTop').innerHTML = '';

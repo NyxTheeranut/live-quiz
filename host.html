@@ -65,6 +65,45 @@
     </div>
     <p id="setupErr" class="err" role="alert"></p>
 
+    <div id="settingsCard" class="card settings">
+      <h2 class="sethead"><i class="ph-fill ph-lightning" aria-hidden="true"></i>ตั้งค่าเกม</h2>
+      <label class="switchrow">
+        <input type="checkbox" role="switch" id="setMusic">
+        <span class="sw" aria-hidden="true"></span>
+        <span><b>เปิดเพลงและเสียงลุ้น</b><small>เพลงตื่นเต้นตอนโหวตหรือตอบ จังหวะเร็วขึ้นเมื่อเวลาใกล้หมด และกลองรัวตอนประกาศผล (ปิดเสียงทั้งหมดได้ที่ปุ่มลำโพงมุมล่างขวา)</small></span>
+      </label>
+      <div class="quizOnly hide">
+        <label class="switchrow">
+          <input type="checkbox" role="switch" id="setHideText">
+          <span class="sw" aria-hidden="true"></span>
+          <span><b>ซ่อนข้อความตัวเลือกบนมือถือ</b><small>มือถือเห็นแค่ปุ่มสีกับรูปร่างและตัวอักษร ก ข ค ง ส่วนข้อความตัวเลือกดูที่จอใหญ่ (เหมือน Kahoot)</small></span>
+        </label>
+      </div>
+      <div class="voteOnly">
+        <fieldset class="setrow" style="margin-top:18px">
+          <legend>ซ่อนอันดับบนจอใหญ่ เมื่อโหวตแล้วถึง</legend>
+          <p class="hint">พอถึงเกณฑ์ กราฟอันดับจะถูกหมอกบัง เหลือแค่ชื่อผู้เข้าชิงที่กระพริบสุ่มให้ลุ้นกัน ไม่มีใครรู้ว่าใครนำ</p>
+          <div class="chipset">
+            <label><input type="radio" name="hideAt" value="off"><span>ไม่ซ่อน</span></label>
+            <label><input type="radio" name="hideAt" value="0"><span>ซ่อนตั้งแต่เริ่ม</span></label>
+            <label><input type="radio" name="hideAt" value="30"><span>30%</span></label>
+            <label><input type="radio" name="hideAt" value="50" checked><span>50%</span></label>
+            <label><input type="radio" name="hideAt" value="70"><span>70%</span></label>
+          </div>
+        </fieldset>
+        <label class="switchrow">
+          <input type="checkbox" role="switch" id="setCeremony">
+          <span class="sw" aria-hidden="true"></span>
+          <span><b>ประกาศแบบพิธีรับรางวัล</b><small>เปิดอันดับ 3 และ 2 ทีละคน แล้วค่อยเฉลยผู้ชนะ</small></span>
+        </label>
+        <label class="switchrow">
+          <input type="checkbox" role="switch" id="setPhoneLive">
+          <span class="sw" aria-hidden="true"></span>
+          <span><b>ให้ผู้เล่นเห็นอันดับสดบนมือถือ</b><small>ปิดไว้ = ผู้เล่นเห็นแค่จำนวนเพื่อนที่โหวตแล้ว ไม่เห็นว่าใครนำ</small></span>
+        </label>
+      </div>
+    </div>
+
     <div id="voteStudio" class="cols">
       <div>
         <div class="sechead"><h2>รางวัล</h2><span class="chip num" id="awardCount"></span></div>
@@ -117,11 +156,19 @@
 
   <div id="voteLive">
     <div class="tools">
-      <div class="seg" role="radiogroup" aria-label="มุมมองคะแนน">
+      <div class="seg" id="viewSeg" role="radiogroup" aria-label="มุมมองคะแนน">
         <label><input type="radio" name="view" value="person" checked><span>รายคน</span></label>
         <label><input type="radio" name="view" value="group"><span>รายกลุ่ม</span></label>
       </div>
       <button class="btn" id="closeBtn"><i class="ph-fill ph-trophy" aria-hidden="true"></i>ปิดโหวตและประกาศผล</button>
+    </div>
+    <div id="fog" class="fog hide">
+      <div class="fog-head">
+        <div class="orb" id="orb"><i class="ring"></i><i class="ring r2"></i><span class="orb-core"><b id="orbPct" class="num">0%</b><small>โหวตแล้ว</small></span></div>
+        <div class="fog-copy"><div id="fogText" class="fog-text" aria-live="polite">คะแนนถูกซ่อนไว้แล้ว</div><div id="fogSub" class="fog-sub num"></div></div>
+      </div>
+      <div id="suspects" class="suspects" aria-hidden="true"></div>
+      <div class="clouds" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
     <div id="chart" class="chart"></div>
     <div id="chartEmpty" class="empty"><i class="ph-bold ph-hand-pointing bob" aria-hidden="true"></i>รอคะแนนแรกอยู่นะ...</div>
@@ -176,7 +223,7 @@
       <textarea id="pasteNominees" rows="6"></textarea>
     </div>
     <div id="pasteQuiz" class="hide">
-      <label for="pasteQs">คำถาม: คำถาม, ตัวเลือก ก ข ค ง, ข้อที่ถูก (ก ข ค ง), วินาที</label>
+      <label for="pasteQs">คำถาม: คำถาม, ตัวเลือก 2 ถึง 8 ช่อง, ข้อที่ถูก (ก ข ค ง จ ฉ ช ซ), วินาที</label>
       <textarea id="pasteQs" rows="10"></textarea>
     </div>
     <p id="pasteMsg" class="err" role="alert"></p>
@@ -205,6 +252,7 @@
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
 <script src="fx.js"></script>
+<script src="sound.js"></script>
 <script src="studio.js"></script>
 <script src="host.js"></script>
 </body>

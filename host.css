@@ -188,3 +188,63 @@ code { background: var(--surface-2); padding: 2px 8px; border-radius: 8px; word-
   .crow .nm { font-size: 1.2rem; }
   .menupanel { right: auto; left: 0; min-width: 260px; }
 }
+
+/* ================= Settings card ================= */
+.settings { max-width: 780px; margin-top: 6px; }
+.sethead { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; margin-bottom: 14px; }
+.sethead i { color: var(--c3); }
+fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
+.setrow legend { font-weight: 700; padding: 0; margin-bottom: 2px; }
+.chipset { display: flex; flex-wrap: wrap; gap: 8px; }
+.chipset label { margin: 0; position: relative; }
+.chipset input { position: absolute; opacity: 0; pointer-events: none; }
+.chipset span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 2px solid var(--edge); border-radius: var(--r-pill); font: 600 1rem var(--font-body); cursor: pointer; }
+.chipset input:checked + span { background: var(--c3); border-color: var(--c3); color: var(--on-c); font-weight: 800; }
+.chipset input:focus-visible + span { outline: 3px solid var(--text); outline-offset: 2px; }
+.switchrow { position: relative; display: flex; align-items: flex-start; gap: 14px; margin: 16px 0 0; cursor: pointer; font-weight: 400; }
+.switchrow input { position: absolute; opacity: 0; pointer-events: none; }
+.switchrow .sw { flex: none; position: relative; width: 54px; height: 32px; border-radius: var(--r-pill); background: var(--surface-2); border: 2px solid var(--edge); transition: background .2s var(--ease); }
+.switchrow .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--text); transition: transform .25s var(--spring); }
+.switchrow input:checked + .sw { background: var(--c4); border-color: var(--c4); }
+.switchrow input:checked + .sw::after { transform: translateX(22px); background: var(--on-c); }
+.switchrow input:focus-visible + .sw { outline: 3px solid var(--text); outline-offset: 3px; }
+.switchrow b { display: block; font-weight: 700; }
+.switchrow small { display: block; color: var(--muted); font-size: .9rem; line-height: 1.4; }
+
+/* ================= Quiz with up to 8 choices ================= */
+.ans .lt { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(0, 0, 0, .18); font: 800 .95rem var(--font-display); }
+.ans .rm { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: var(--on-c); font-size: 1.1rem; cursor: pointer; opacity: .7; }
+.ans .rm:hover { opacity: 1; background: rgba(0, 0, 0, .15); }
+.addans { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border: 2px dashed var(--edge); border-radius: var(--r-card); background: transparent; color: var(--muted); font: 700 1rem var(--font-display); cursor: pointer; }
+.addans:hover { background: var(--surface-2); color: var(--text); }
+.tile .ltr { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: rgba(0, 0, 0, .18); font: 800 1.3rem var(--font-display); }
+.tiles.many .tile { min-height: 84px; padding: 12px 20px; font-size: clamp(1.1rem, 2.4vw, 1.6rem); }
+.tiles.many .tile i.sh { font-size: 1.8rem; }
+.qb .ltr { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: rgba(0, 0, 0, .18); font: 800 1.05rem var(--font-display); }
+
+/* ================= Suspense fog ================= */
+.fog { position: relative; margin-top: 18px; padding: 28px 24px 32px; overflow: hidden; border-radius: 24px; background: radial-gradient(90% 120% at 20% 0%, var(--surface-2), var(--surface)); border: 2px solid var(--line); animation: rise .6s var(--ease) both; }
+.fog-head { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; position: relative; z-index: 2; }
+.orb { position: relative; width: 190px; height: 190px; flex: none; display: grid; place-items: center; --beat: 1.2s; }
+.orb .ring { position: absolute; inset: 0; border-radius: 50%; border: 4px solid var(--c1); opacity: 0; animation: ripple var(--beat) ease-out infinite; }
+.orb .ring.r2 { animation-delay: calc(var(--beat) / 2); }
+.orb-core { position: relative; display: grid; place-items: center; align-content: center; width: 150px; height: 150px; border-radius: 50%; background: var(--c1); color: var(--on-c); animation: beat var(--beat) ease-in-out infinite; box-shadow: 0 8px 0 rgba(0, 0, 0, .28); }
+.orb-core b { font: 800 2.8rem/1 var(--font-display); }
+.orb-core small { font-weight: 700; font-size: .95rem; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 14% { transform: scale(1.14); } 28% { transform: scale(1); } 42% { transform: scale(1.08); } 70% { transform: scale(1); } }
+@keyframes ripple { from { transform: scale(.85); opacity: .75; } to { transform: scale(1.7); opacity: 0; } }
+.fog-copy { flex: 1; min-width: 260px; }
+.fog-text { font: 800 clamp(1.8rem, 4.4vw, 3.2rem)/1.2 var(--font-display); animation: rise .5s var(--ease) both; }
+.fog-sub { color: var(--muted); font-size: 1.3rem; margin-top: 6px; }
+.suspects { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 12px; margin-top: 28px; position: relative; z-index: 1; }
+.sus { padding: 6px 18px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--muted); font: 700 1.15rem var(--font-display); transition: transform .35s var(--spring), opacity .35s, background .2s, color .2s; opacity: .7; }
+.sus.lit { transform: scale(1.22); opacity: 1; background: var(--tint); color: var(--on-c); box-shadow: 0 4px 0 rgba(0, 0, 0, .28); }
+.clouds { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.clouds i { position: absolute; width: 60%; height: 55%; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 248, 236, .16), transparent); filter: blur(26px); animation: cloud 18s ease-in-out infinite alternate; }
+.clouds i:nth-child(1) { left: -10%; top: 30%; }
+.clouds i:nth-child(2) { right: -12%; top: 50%; animation-duration: 24s; animation-delay: -6s; }
+.clouds i:nth-child(3) { left: 20%; top: 62%; animation-duration: 21s; animation-delay: -12s; }
+@keyframes cloud { from { transform: translateX(-9%) scale(1); } to { transform: translateX(14%) scale(1.15); } }
+.fog.final .orb-core { background: var(--c3); }
+.fog.final .orb .ring { border-color: var(--c3); }
+@media (max-width: 560px) { .orb { width: 150px; height: 150px; } .orb-core { width: 118px; height: 118px; } .orb-core b { font-size: 2.2rem; } }

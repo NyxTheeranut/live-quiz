@@ -2,12 +2,14 @@
 // Exposes window.Studio = { build(), kind() }.
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const LETTERS = 'กขคง';
+const LETTERS = 'กขคงจฉชซ';
+const MAXCH = 8;
 const SHAPES = ['triangle', 'diamond', 'circle', 'square'];
 const EMOJI = ['😭', '🗣️', '👑', '🦥', '🔥', '👻', '🤥', '💃', '🐍', '🥇', '😂', '🤣', '🏆', '🎉', '😎', '🍜', '☕', '💤', '🎤', '🤡', '🧠', '💸', '🐶', '🌶️'];
 const LEAD_EMOJI = /^\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*\s*/u;
 const DEFAULT_TITLE = { vote: 'ประกาศรางวัลตัวตึงแห่งปี', quiz: 'ควิซวันศุกร์' };
 const DRAFT_KEY = 'quiz-draft';
+const DEFAULT_SET = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false };
 
 const SAMPLE = {
   awards: [
@@ -36,6 +38,7 @@ let S = (() => {
   try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY)); if (d && d.awards && d.groups && d.quiz) return d; } catch (e) {}
   return { kind: 'vote', title: DEFAULT_TITLE.vote, ...clone(SAMPLE) };
 })();
+S.settings = { ...DEFAULT_SET, ...(S.settings || {}) };
 let saveT = null;
 const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(S)); } catch (e) {} }, 300); };
 
@@ -77,12 +80,22 @@ function groupsFromRows(rows) {
   });
   return [...map].map(([name, names]) => ({ name, names }));
 }
+const LETTER_RE = /^[A-Hกขคงจฉชซ]$/i;
+const letterIdx = c => { c = c.toUpperCase(); return 'ABCDEFGH'.includes(c) ? 'ABCDEFGH'.indexOf(c) : LETTERS.indexOf(c); };
+// แถว: คำถาม, ตัวเลือก 2 ถึง 8 ช่อง, ข้อที่ถูก (ก ข ค ง จ ฉ ช ซ หรือ A-H), วินาที (เว้นว่างได้)
 function quizFromRows(rows) {
-  return rows.filter(r => r.length >= 6 && /^[ABCDกขคง]$/i.test((r[5] || '').trim())).map(r => {
-    const c = r[5].trim().toUpperCase();
-    const correct = 'ABCD'.includes(c) ? 'ABCD'.indexOf(c) : LETTERS.indexOf(c);
-    return { prompt: r[0].trim(), choices: [r[1], r[2], r[3], r[4]].map(s => (s || '').trim()), correct, sec: clamp(r[6], 20) };
+  const out = [];
+  rows.forEach(r => {
+    const cells = r.map(c => (c || '').trim());
+    for (let k = cells.length - 1; k >= 3; k--) {
+      const tail = cells.slice(k + 1);
+      if (!LETTER_RE.test(cells[k]) || tail.length > 1 || tail.some(c => c && !/^\d+$/.test(c))) continue;
+      const choices = cells.slice(1, k).slice(0, MAXCH), correct = letterIdx(cells[k]);
+      if (cells[0] && choices.length >= 2 && choices[correct]) out.push({ prompt: cells[0], choices, correct, sec: clamp(cells[k + 1], 20) });
+      return;
+    }
   });
+  return out;
 }
 
 // ---------- วาดหน้าจอ ----------
@@ -141,11 +154,13 @@ function renderQuiz(focus) {
       <div class="qbody">
         <div><label class="mini" for="qp${i}">คำถาม</label>
           <textarea id="qp${i}" data-f="prompt" rows="2" maxlength="140" placeholder="พิมพ์คำถามที่นี่">${esc(q.prompt)}</textarea></div>
-        <div class="answers">${[0, 1, 2, 3].map(k => `
-          <div class="ans tint${k + 1}"><i class="ph-fill ph-${SHAPES[k]} shape" aria-hidden="true"></i>
-            <input type="text" data-f="ch" data-k="${k}" maxlength="60" value="${esc(q.choices[k])}" aria-label="ตัวเลือก ${LETTERS[k]}" placeholder="ตัวเลือก ${LETTERS[k]}${k > 1 ? ' (ไม่ใส่ก็ได้)' : ''}">
+        <div class="answers">${q.choices.map((c, k) => `
+          <div class="ans tint${k % 4 + 1}"><i class="ph-fill ph-${SHAPES[k % 4]} shape" aria-hidden="true"></i><span class="lt" aria-hidden="true">${LETTERS[k]}</span>
+            <input type="text" data-f="ch" data-k="${k}" maxlength="60" value="${esc(c)}" aria-label="ตัวเลือก ${LETTERS[k]}" placeholder="ตัวเลือก ${LETTERS[k]}${k > 1 ? ' (ไม่ใส่ก็ได้)' : ''}">
             <button type="button" class="ok" data-act="correct" data-k="${k}" aria-pressed="${q.correct === k}" aria-label="ตั้งตัวเลือก ${LETTERS[k]} เป็นข้อที่ถูก"><i class="ph-bold ph-check" aria-hidden="true"></i></button>
-          </div>`).join('')}</div>
+            ${q.choices.length > 2 ? `<button type="button" class="rm" data-act="chdel" data-k="${k}" aria-label="ลบตัวเลือก ${LETTERS[k]}"><i class="ph-bold ph-x" aria-hidden="true"></i></button>` : ''}
+          </div>`).join('')}
+          ${q.choices.length < MAXCH ? `<button type="button" class="addans" data-act="chadd"><i class="ph-bold ph-plus" aria-hidden="true"></i>เพิ่มตัวเลือก (${q.choices.length}/${MAXCH})</button>` : ''}</div>
         <div class="secs" role="group" aria-label="เวลาตอบ"><span class="muted">เวลาตอบ</span>
           ${[10, 15, 20, 30, 60].map(s => `<button type="button" class="chipbtn" data-act="sec" data-s="${s}" aria-pressed="${q.sec === s}">${s} วิ</button>`).join('')}</div>
       </div>
@@ -162,9 +177,23 @@ function setKind(k) {
   $('title').value = S.title;
   $('voteStudio').classList.toggle('hide', k !== 'vote');
   $('quizStudio').classList.toggle('hide', k !== 'quiz');
-  save();
+  renderSettings(); save();
 }
+function renderSettings() {
+  const r = document.querySelector(`input[name=hideAt][value="${S.settings.hideAt}"]`); if (r) r.checked = true;
+  $('setCeremony').checked = !!S.settings.ceremony; $('setPhoneLive').checked = !!S.settings.phoneLive;
+  $('setMusic').checked = S.settings.music !== false; $('setHideText').checked = !!S.settings.hideText;
+  document.querySelectorAll('#settingsCard .voteOnly').forEach(e => e.classList.toggle('hide', S.kind !== 'vote'));
+  document.querySelectorAll('#settingsCard .quizOnly').forEach(e => e.classList.toggle('hide', S.kind !== 'quiz'));
+}
+document.querySelectorAll('input[name=hideAt]').forEach(r => r.onchange = () => { S.settings.hideAt = r.value; save(); });
+$('setCeremony').onchange = () => { S.settings.ceremony = $('setCeremony').checked; save(); };
+$('setPhoneLive').onchange = () => { S.settings.phoneLive = $('setPhoneLive').checked; save(); };
+$('setMusic').onchange = () => { S.settings.music = $('setMusic').checked; save(); };
+$('setHideText').onchange = () => { S.settings.hideText = $('setHideText').checked; save(); };
+
 function renderAll() {
+  renderSettings();
   document.querySelector(`input[name=kind][value=${S.kind}]`).checked = true;
   $('title').value = S.title;
   $('voteStudio').classList.toggle('hide', S.kind !== 'vote');
@@ -254,6 +283,15 @@ $('quizList').addEventListener('input', e => {
 $('quizList').addEventListener('click', e => {
   const b = e.target.closest('button[data-act]'); if (!b) return;
   const i = +b.closest('.qcard').dataset.i, act = b.dataset.act, q = S.quiz[i];
+  if (act === 'chadd') {
+    if (q.choices.length < MAXCH) { q.choices.push(''); renderQuiz(`[data-i="${i}"] [data-f=ch][data-k="${q.choices.length - 1}"]`); save(); }
+    return;
+  }
+  if (act === 'chdel') {
+    const k = +b.dataset.k; q.choices.splice(k, 1);
+    if (q.correct === k) q.correct = -1; else if (q.correct > k) q.correct--;
+    renderQuiz(`[data-i="${i}"] [data-act=chadd]`); save(); return;
+  }
   if (act === 'correct') { q.correct = +b.dataset.k; renderQuiz(`[data-i="${i}"] [data-act=correct][data-k="${b.dataset.k}"]`); save(); return; }
   if (act === 'sec') { q.sec = +b.dataset.s; renderQuiz(`[data-i="${i}"] [data-act=sec][data-s="${b.dataset.s}"]`); save(); return; }
   const at = listAction(S.quiz, i, act, () => ({ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }));
@@ -342,7 +380,7 @@ $('fileIn').onchange = async () => {
   try {
     const d = JSON.parse(await f.text());
     if (!Array.isArray(d.awards) || !Array.isArray(d.groups) || !Array.isArray(d.quiz)) throw new Error('bad');
-    S = { kind: d.kind === 'quiz' ? 'quiz' : 'vote', title: String(d.title || ''), awards: d.awards, groups: d.groups, quiz: d.quiz };
+    S = { kind: d.kind === 'quiz' ? 'quiz' : 'vote', title: String(d.title || ''), awards: d.awards, groups: d.groups, quiz: d.quiz, settings: { ...DEFAULT_SET, ...(d.settings || {}) } };
     renderAll(); save();
   } catch (e) { $('setupErr').textContent = 'ไฟล์นี้ไม่ใช่ไฟล์เกมที่บันทึกจากสตูดิโอนี้'; }
 };
@@ -356,20 +394,21 @@ function build() {
     const choices = [], groups = [];
     S.groups.forEach(g => g.names.forEach(n => { choices.push(n); groups.push(g.name.trim()); }));
     if (choices.length < 2) return { error: 'ใส่ผู้เข้าชิงอย่างน้อย 2 คนก่อนนะ', focus: '#groupList [data-f=gadd]' };
-    return { kind: 'vote', title, questions: awards.map(a => ({
+    return { kind: 'vote', title, settings: { ...S.settings }, questions: awards.map(a => ({
       prompt: a.title.trim().replace(/^\d+[.)]\s*/, ''), note: a.note.trim(), choices, groups, duration: clamp(a.sec, 90) })) };
   }
   const out = [];
   for (let i = 0; i < S.quiz.length; i++) {
     const q = S.quiz[i], ch = q.choices.map(c => c.trim()), n = i + 1;
+    while (ch.length > 2 && !ch[ch.length - 1]) ch.pop();                          // ตัดช่องว่างท้ายทิ้ง
     if (!q.prompt.trim() && ch.every(c => !c) && S.quiz.length > 1) continue;     // ข้อว่างที่เผลอเพิ่มไว้
     if (!q.prompt.trim()) return { error: `ข้อ ${n} ยังไม่มีคำถาม`, focus: `#quizList [data-i="${i}"] [data-f=prompt]` };
     if (ch.filter(Boolean).length < 2) return { error: `ข้อ ${n} ต้องมีตัวเลือกอย่างน้อย 2 ข้อ`, focus: `#quizList [data-i="${i}"] [data-f=ch]` };
     if (q.correct < 0 || !ch[q.correct]) return { error: `ข้อ ${n} ยังไม่ได้เลือกข้อที่ถูก (กดปุ่มเครื่องหมายถูกที่ตัวเลือกที่ถูก)`, focus: `#quizList [data-i="${i}"] [data-act=correct]` };
-    out.push({ prompt: q.prompt.trim(), choices: ch, correct: q.correct, duration: clamp(q.sec, 20) });
+    out.push({ prompt: q.prompt.trim(), choices: ch, correct: q.correct, duration: clamp(q.sec, 20), groups: S.settings.hideText ? { hideText: true } : null });
   }
   if (!out.length) return { error: 'ใส่คำถามอย่างน้อย 1 ข้อก่อนนะ', focus: '#quizList [data-f=prompt]' };
-  return { kind: 'quiz', title, questions: out };
+  return { kind: 'quiz', title, questions: out, settings: { ...S.settings } };
 }
 
 renderAll();

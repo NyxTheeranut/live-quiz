@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>บอททดสอบ 100 คน</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261028203942"></script>
+<script src="config.js?v=20261028205121"></script>
 <style>
   body { font:16px/1.5 system-ui, sans-serif; max-width:640px; margin:40px auto; padding:0 20px; color:#172036; }
   input, button { font:inherit; padding:10px 14px; margin:4px 0; }
@@ -50,7 +50,13 @@ document.getElementById('go').onclick = async () => {
           : options[Math.floor(Math.random() * options.length)];
         const wait = 500 + Math.random() * Math.max(0, Math.min(m.duration, 40) - 2) * 1000;
         setTimeout(async () => {
-          const r = await db.rpc('submit_answer', { p_player: data.player_id, p_idx: m.idx, p_choice: pick });
+          const mx = m.maxVotes || 1;
+          let r;
+          if (m.kind === 'vote' && mx > 1) {            // โหวตหลายคน: สุ่มจำนวน 1 ถึงสูงสุด แบบไม่ซ้ำ
+            const k = 1 + Math.floor(Math.random() * mx), set = new Set();
+            while (set.size < Math.min(k, options.length)) set.add(options[Math.floor(Math.random() ** 2.2 * options.length)]);
+            r = await db.rpc('submit_votes', { p_player: data.player_id, p_idx: m.idx, p_choices: [...set] });
+          } else r = await db.rpc('submit_answer', { p_player: data.player_id, p_idx: m.idx, p_choice: pick });
           if (r.error) { stats.rejected++; stats.errors.push(r.error.message); } else stats.answered++;
         }, wait);
       })

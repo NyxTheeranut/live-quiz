@@ -31,6 +31,7 @@ create table if not exists questions (
   choices     jsonb not null,                          -- ["Bangkok","Chiang Mai"] or nominee names
   groups      jsonb,                                   -- vote: group name per choice (array). quiz: optional {"hideText":true}
   duration_s  int  not null default 20 check (duration_s between 5 and 600),
+  max_votes   int  not null default 1,                -- vote: how many nominees one person may pick for this award (min 1)
   primary key (game_id, idx)
 );
 
@@ -59,7 +60,7 @@ create table if not exists answers (
   is_correct   boolean,                          -- null for votes
   points       int  not null,
   answered_at  timestamptz not null default now(),
-  primary key (player_id, idx)                  -- one answer (or one vote) per player per question
+  primary key (player_id, idx, choice)          -- quiz: one row per question (enforced in submit_answer). vote: one row per pick
 );
 create index if not exists answers_game_idx on answers (game_id, idx);
 
@@ -68,6 +69,15 @@ alter table games     add column if not exists kind text not null default 'quiz'
 alter table questions add column if not exists note text;
 alter table questions add column if not exists groups jsonb;
 alter table answers   alter column is_correct drop not null;
+alter table questions add column if not exists max_votes int not null default 1;
+-- older databases had primary key (player_id, idx): allow several picks per person per award
+do $$
+begin
+  if (select array_length(conkey, 1) from pg_constraint where conrelid = 'answers'::regclass and contype = 'p') = 2 then
+    alter table answers drop constraint answers_pkey;
+    alter table answers add primary key (player_id, idx, choice);
+  end if;
+end $$;
 
 -- ---------- Who can read what ----------------------------------------
 -- The browser uses the public (publishable / anon) key, so lock tables down
@@ -119,9 +129,10 @@ begin
     if jsonb_typeof(q->'choices') <> 'array' or jsonb_array_length(q->'choices') not between 2 and 200 then
       raise exception 'แต่ละข้อต้องมีตัวเลือก 2 ถึง 200 ตัว';
     end if;
-    insert into questions (game_id, idx, prompt, note, choices, groups, duration_s)
+    insert into questions (game_id, idx, prompt, note, choices, groups, duration_s, max_votes)
       values (g.id, i, q->>'prompt', nullif(q->>'note',''), q->'choices', q->'groups',
-              coalesce((q->>'duration')::int, case when p_kind = 'vote' then 90 else 20 end));
+              coalesce((q->>'duration')::int, case when p_kind = 'vote' then 90 else 20 end),
+              greatest(1, least(coalesce((q->>'max_votes')::int, 1), jsonb_array_length(q->'choices'))));
     if p_kind = 'quiz' then
       insert into answer_keys (game_id, idx, correct)
         values (g.id, i, (q->>'correct')::int);
@@ -182,11 +193,14 @@ begin
   if ms > dur * 1000 + 1500 then raise exception 'หมดเวลาสำหรับข้อนี้แล้ว'; end if; -- 1.5 s network grace
 
   if g.kind = 'vote' then
+    delete from answers where player_id = p_player and idx = p_idx;
     insert into answers (player_id, game_id, idx, choice, elapsed_ms, is_correct, points)
-    values (p_player, g.id, p_idx, p_choice, ms, null, 0)
-    on conflict (player_id, idx) do update
-      set choice = excluded.choice, elapsed_ms = excluded.elapsed_ms, answered_at = now();
+    values (p_player, g.id, p_idx, p_choice, ms, null, 0);
     return json_build_object('accepted', true);
+  end if;
+
+  if exists (select 1 from answers where player_id = p_player and idx = p_idx) then
+    return json_build_object('accepted', false, 'reason', 'ตอบข้อนี้ไปแล้ว');
   end if;
 
   select (correct = p_choice) into ok from answer_keys where game_id = g.id and idx = p_idx;
@@ -201,6 +215,39 @@ exception when unique_violation then
   return json_build_object('accepted', false, 'reason', 'ตอบข้อนี้ไปแล้ว');
 end $$;
 
+-- Player (vote): set my picks for the open award. Replaces any earlier picks.
+-- Between 1 and the award's max_votes distinct nominees.
+create or replace function submit_votes(p_player uuid, p_idx int, p_choices int[])
+returns json language plpgsql security definer set search_path = public as $$
+declare g games; dur int; n int; mx int; ms int; c int; picks int[];
+begin
+  select gm.* into g from games gm join players p on p.game_id = gm.id where p.id = p_player;
+  if not found then raise exception 'ไม่พบผู้เล่น'; end if;
+  if g.kind <> 'vote' then raise exception 'เกมนี้ไม่ใช่เกมโหวต'; end if;
+  if g.phase <> 'question' or g.current_q <> p_idx then raise exception 'หมดเวลาสำหรับข้อนี้แล้ว'; end if;
+
+  select duration_s, jsonb_array_length(choices), max_votes into dur, n, mx
+    from questions where game_id = g.id and idx = p_idx;
+  ms := (extract(epoch from (clock_timestamp() - g.q_started_at)) * 1000)::int;
+  if ms > dur * 1000 + 1500 then raise exception 'หมดเวลาสำหรับข้อนี้แล้ว'; end if;
+
+  select coalesce(array_agg(distinct x), '{}') into picks from unnest(coalesce(p_choices, '{}')) x;
+  if coalesce(array_length(picks, 1), 0) <> coalesce(array_length(p_choices, 1), 0) then raise exception 'เลือกคนซ้ำกันไม่ได้'; end if;
+  if coalesce(array_length(picks, 1), 0) < 1 then raise exception 'เลือกอย่างน้อย 1 คนก่อนนะ'; end if;
+  if array_length(picks, 1) > mx then raise exception 'รางวัลนี้โหวตได้สูงสุด % คน', mx; end if;
+  foreach c in array picks loop
+    if c < 0 or c >= n then raise exception 'ตัวเลือกไม่ถูกต้อง'; end if;
+  end loop;
+
+  delete from answers where player_id = p_player and idx = p_idx;
+  insert into answers (player_id, game_id, idx, choice, elapsed_ms, is_correct, points)
+    select p_player, g.id, p_idx, x, ms, null, 0 from unnest(picks) x;
+  return json_build_object('accepted', true, 'count', array_length(picks, 1));
+end $$;
+
+-- Lets the host page check that this file has been run (multi-vote needs it).
+create or replace function schema_version() returns int language sql immutable as $$ select 2 $$;
+
 -- Host: live counter and per-choice tally while a question is open.
 create or replace function host_stats(p_game uuid, p_token uuid, p_idx int)
 returns json language plpgsql security definer set search_path = public as $$
@@ -209,7 +256,7 @@ begin
   if not found then raise exception 'คุณไม่ใช่เจ้าของเกมนี้'; end if;
   return json_build_object(
     'players',  (select count(*) from players where game_id = p_game),
-    'answered', (select count(*) from answers where game_id = p_game and idx = p_idx),
+    'answered', (select count(distinct a.player_id) from answers a where a.game_id = p_game and a.idx = p_idx),
     'dist',     (select coalesce(json_object_agg(d.choice, d.n), '{}'::json)
                    from (select a.choice, count(*) as n from answers a
                           where a.game_id = p_game and a.idx = p_idx group by a.choice) d));
@@ -278,5 +325,5 @@ begin
      order by p.nickname, a.idx;
 end $$;
 
-grant execute on function create_game, join_game, set_phase, submit_answer,
+grant execute on function create_game, join_game, set_phase, submit_answer, submit_votes, schema_version,
                           host_stats, host_reveal, host_summary, get_results to anon, authenticated;

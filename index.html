@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261028203942">
+<link rel="stylesheet" href="theme.css?v=20261028205121">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261028203942"></script>
+<script src="config.js?v=20261028205121"></script>
 <style>
   main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
   section { flex: 1; display: flex; flex-direction: column; }
@@ -60,6 +60,7 @@
   .qgrid .item { min-height: 84px; font: 800 1.2rem/1.3 var(--font-display); background: var(--tint); border-color: transparent; color: var(--on-c); box-shadow: 0 5px 0 rgba(0, 0, 0, .28); animation: pop .4s var(--spring) both; }
   .qgrid .item:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, .28); }
   .qgrid .item i { font-size: 1.8rem; flex: none; }
+  #votedName.many { font-size: 1.5rem; display: grid; gap: 4px; }
   .progline { display: flex; align-items: center; gap: 10px; font: 700 1.1rem var(--font-display); }
   .beatico { color: var(--c1); font-size: 1.7rem; animation: bump 1s ease-in-out infinite; }
   .qgrid.many:not(.shapes) .item { min-height: 62px; font-size: 1.05rem; padding-top: 4px; padding-bottom: 4px; }
@@ -103,7 +104,7 @@
 
   <!-- โหวต -->
   <section id="s-vote" class="hide">
-    <div class="vhead"><span class="chip" id="vnum"></span><span class="timer" id="vtimer"></span></div>
+    <div class="vhead"><span class="chip" id="vnum"></span><span class="chip hide" id="vmax"></span><span class="timer" id="vtimer"></span></div>
     <h2 id="vtitle" style="font-size:1.7rem;margin:10px 0 4px"></h2>
     <p class="award-note" id="vnote"></p>
     <div class="search">
@@ -117,6 +118,7 @@
     <div id="vlist"></div>
     <div id="vnone" class="noresult hide">ไม่พบชื่อนี้ ลองพิมพ์คำอื่นนะ</div>
     <div class="dock">
+      <p id="vpick" class="center-text hide num" style="margin:0 0 4px;font-weight:700"></p>
       <p id="vErr" class="err center-text" role="alert" style="margin:0 0 6px"></p>
       <button class="btn block" id="voteBtn" disabled>เลือกชื่อก่อนนะ</button>
     </div>
@@ -199,8 +201,8 @@ const SHAPES = ['triangle', 'diamond', 'circle', 'square', 'star', 'heart', 'hex
 let me = null;          // { player_id, game_id, pin, nick }
 let chan = null, pollT = null, finished = false;
 let cur = null;         // คำถามที่เปิดอยู่ (ข้อความล่าสุดจากโฮสต์)
-let tick = null, answeredIdx = -1, sel = -1, lastTally = null, timeUp = false;
-const myVote = {};      // idx -> ตัวเลือกที่โหวตไว้
+let tick = null, answeredIdx = -1, sel = [], lastTally = null, timeUp = false;
+const myVote = {};      // idx -> รายการตัวเลือกที่โหวตไว้ (หลายคนได้ถ้าผู้จัดตั้งไว้)
 
 // ---------- เข้าร่วม ----------
 try {
@@ -254,12 +256,13 @@ async function resync() {
     return;
   }
   if (g.phase === 'question') {
-    const { data: q } = await db.from('questions')
-      .select('idx,prompt,note,choices,groups,duration_s').eq('game_id', me.game_id).eq('idx', g.current_q).single();
+    const pick = cols => db.from('questions').select(cols).eq('game_id', me.game_id).eq('idx', g.current_q).single();
+    let { data: q } = await pick('idx,prompt,note,choices,groups,duration_s,max_votes');
+    if (!q) ({ data: q } = await pick('idx,prompt,note,choices,groups,duration_s'));   // ฐานข้อมูลเก่ายังไม่มีคอลัมน์ max_votes
     if (!q) return;
     const elapsed = (Date.now() - new Date(g.q_started_at).getTime()) / 1000;
     handle({ type: 'question', idx: q.idx, kind: g.kind, prompt: q.prompt, note: q.note || '', choices: q.choices,
-             groups: q.groups, duration: Math.max(0, Math.min(q.duration_s, q.duration_s - elapsed)) });
+             groups: q.groups, maxVotes: q.max_votes || 1, duration: Math.max(0, Math.min(q.duration_s, q.duration_s - elapsed)) });
   } else if (g.phase === 'ended') {
     if (curScreen !== 's-end') onEnded({ aborted: true });   // พลาดข้อความจบเกม หรือเกมถูกปิดไปแล้ว
   } else if (g.phase === 'reveal' && ['s-vote', 's-voted', 's-q', 's-locked'].includes(curScreen)) {
@@ -298,7 +301,7 @@ function onReady(m) {
 
 function onQuestion(m) {
   if (cur && cur.idx === m.idx) return;   // ข้อเดิมที่ resync ส่งซ้ำ ไม่ต้องรีเซ็ตหน้าจอ
-  sel = myVote[m.idx] ?? -1; lastTally = null;
+  sel = [...(myVote[m.idx] || [])]; lastTally = null;
   cur = m;
   if (m.kind === 'vote') return openVote(m);
   clearInterval(tick);
@@ -336,13 +339,15 @@ function openVote(m) {
   $('vnote').textContent = m.note || '';
   $('vnote').classList.toggle('hide', !m.note);
   $('vsearch').value = ''; $('vErr').textContent = '';
+  const mx = m.maxVotes || 1;
+  $('vmax').textContent = 'เลือกได้ ' + mx + ' คน'; $('vmax').classList.toggle('hide', mx < 2);
   buildList(m);
   syncDock();
   const finished = () => { $('voteBtn').disabled = true; $('voteBtn').textContent = 'หมดเวลาโหวตแล้ว'; $('changeBtn').classList.add('hide'); $('votedMsg').textContent = 'หมดเวลาแล้ว รอประกาศผลที่หน้าจอใหญ่'; };
   startTimer(m.duration, ['vtimer', 'dtimer'], finished);
   $('dnum').textContent = $('vnum').textContent;
   $('changeBtn').classList.remove('hide'); $('votedMsg').textContent = '';
-  if (myVote[m.idx] !== undefined) showVoted(); else show('s-vote');
+  if (myVote[m.idx]) showVoted(); else show('s-vote');
 }
 
 function buildList(m) {
@@ -360,7 +365,7 @@ function buildList(m) {
     const wrap = document.createElement(hasGroups ? 'details' : 'div');
     wrap.className = 'grp'; if (!hasGroups) wrap.style.cssText = 'border:0;background:none';
     if (hasGroups) {
-      wrap.open = startOpen || byGroup.get(g).includes(sel);
+      wrap.open = startOpen || byGroup.get(g).some(i => sel.includes(i));
       wrap.innerHTML = `<summary><i class="ph-bold ph-users-three" aria-hidden="true"></i><span></span><span class="n"></span><i class="ph-bold ph-caret-down car" aria-hidden="true"></i></summary>`;
       wrap.querySelector('span').textContent = g;
       wrap.querySelector('.n').textContent = byGroup.get(g).length + ' คน';
@@ -370,10 +375,18 @@ function buildList(m) {
     byGroup.get(g).forEach(i => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'item'; b.dataset.i = i; b.dataset.q = m.choices[i].toLowerCase();
-      b.setAttribute('aria-pressed', i === sel ? 'true' : 'false');
+      b.setAttribute('aria-pressed', sel.includes(i) ? 'true' : 'false');
       b.innerHTML = '<span></span><i class="ph-bold ph-check tick" aria-hidden="true"></i>';
       b.firstChild.textContent = m.choices[i];
-      b.onclick = () => { sel = i; $('vErr').textContent = ''; $('vlist').querySelectorAll('.item').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); syncDock(); };
+      b.onclick = () => {
+        const mx = cur.maxVotes || 1; $('vErr').textContent = '';
+        if (mx === 1) sel = [i];
+        else if (sel.includes(i)) sel = sel.filter(x => x !== i);
+        else if (sel.length >= mx) { $('vErr').textContent = `เลือกได้สูงสุด ${mx} คน กดที่ชื่อที่เลือกไว้เพื่อเอาออกก่อนนะ`; return; }
+        else sel = [...sel, i];
+        $('vlist').querySelectorAll('.item').forEach(x => x.setAttribute('aria-pressed', sel.includes(+x.dataset.i) ? 'true' : 'false'));
+        syncDock();
+      };
       items.appendChild(b);
     });
     wrap.appendChild(items); $('vlist').appendChild(wrap);
@@ -383,8 +396,11 @@ function buildList(m) {
 function syncDock() {
   const b = $('voteBtn');
   if (timeUp) return;
-  b.disabled = sel < 0;
-  b.textContent = sel < 0 ? 'เลือกชื่อก่อนนะ' : 'โหวตให้ ' + cur.choices[sel];
+  const mx = cur.maxVotes || 1;
+  b.disabled = sel.length === 0;
+  $('vpick').classList.toggle('hide', mx < 2);
+  $('vpick').textContent = `เลือกแล้ว ${sel.length} จาก ${mx} คน`;
+  b.textContent = sel.length === 0 ? 'เลือกชื่อก่อนนะ' : mx === 1 ? 'โหวตให้ ' + cur.choices[sel[0]] : `ยืนยันโหวต ${sel.length} คน`;
 }
 
 $('vsearch').oninput = () => {
@@ -403,21 +419,26 @@ $('openAll').onclick = () => $('vlist').querySelectorAll('details').forEach(d =>
 $('closeAll').onclick = () => $('vlist').querySelectorAll('details').forEach(d => d.open = false);
 
 $('voteBtn').onclick = async () => {
-  if (sel < 0 || !cur) return;
+  if (!sel.length || !cur) return;
   $('voteBtn').disabled = true; $('vErr').textContent = '';
-  const idx = cur.idx, pick = sel;
-  const { error } = await db.rpc('submit_answer', { p_player: me.player_id, p_idx: idx, p_choice: pick });
+  const idx = cur.idx, picks = [...sel], mx = cur.maxVotes || 1;
+  // โหวตคนเดียวใช้ฟังก์ชันเดิม (ใช้ได้แม้ฐานข้อมูลยังไม่ได้อัปเดต) หลายคนใช้ submit_votes
+  const { error } = mx === 1
+    ? await db.rpc('submit_answer', { p_player: me.player_id, p_idx: idx, p_choice: picks[0] })
+    : await db.rpc('submit_votes', { p_player: me.player_id, p_idx: idx, p_choices: picks });
   if (error) { $('vErr').textContent = error.message; $('voteBtn').disabled = false; return; }
-  myVote[idx] = pick;
+  myVote[idx] = picks;
   showVoted();
 };
 
 function showVoted() {
-  $('votedName').textContent = cur.choices[myVote[cur.idx]];
+  $('votedName').innerHTML = '';
+  myVote[cur.idx].forEach(k => { const d = document.createElement('div'); d.textContent = cur.choices[k]; $('votedName').appendChild(d); });
+  $('votedName').classList.toggle('many', myVote[cur.idx].length > 1);
   paintLive();
   show('s-voted');
 }
-$('changeBtn').onclick = () => { sel = myVote[cur.idx] ?? sel; buildList(cur); syncDock(); show('s-vote'); };
+$('changeBtn').onclick = () => { sel = [...(myVote[cur.idx] || sel)]; buildList(cur); syncDock(); show('s-vote'); };
 
 function onTally(m) {
   if (!cur || cur.idx !== m.idx) return;
@@ -461,8 +482,8 @@ function onVoteReveal(m) {
   $('vrWinner').textContent = winners.length ? winners.map(r => q.choices[r.k]).join(' และ ') : 'ไม่มีใครโหวต';
   $('vrSub').textContent = winners.length ? `${topN} คะแนน จากผู้โหวต ${m.answered} คน` : '';
   const mine = myVote[m.idx];
-  $('vrYou').textContent = mine === undefined ? 'รอบนี้คุณไม่ได้โหวต'
-    : (winners.some(r => r.k === mine) ? 'คุณโหวตถูกใจชาวบ้าน ได้ตัวเต็งเลย' : 'คุณโหวตให้ ' + q.choices[mine]);
+  $('vrYou').textContent = !mine ? 'รอบนี้คุณไม่ได้โหวต'
+    : (winners.some(r => mine.includes(r.k)) ? 'คุณโหวตถูกใจชาวบ้าน ได้ตัวเต็งเลย' : 'คุณโหวตให้ ' + mine.map(k => q.choices[k]).join(' / '));
   show('s-vresult');
 }
 
@@ -504,6 +525,6 @@ function onEnded(m) {
   show('s-end');
 }
 </script>
-<script src="fx.js?v=20261028203942"></script>
+<script src="fx.js?v=20261028205121"></script>
 </body>
 </html>

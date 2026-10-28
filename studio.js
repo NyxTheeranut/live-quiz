@@ -18,7 +18,7 @@ const SAMPLE = {
     ['🔥 หัวร้อนระดับเตาปฏิกรณ์', 'อารมณ์เดือดก่อนน้ำในกาต้ม'], ['👻 ผีประจำกลุ่ม', 'ตอนทำงานหาย ตอนกินข้าวมา'],
     ['🤥 ราชาแห่งข้ออ้าง', 'ไม่เคยผิด เพราะมีเหตุผลรองรับเสมอ'], ['💃 ตัวแม่สายมั่น', 'ผิดไม่กลัว กลัวไม่โดดเด่น'],
     ['🐍 นักสืบแห่งปี', 'เรื่องชาวบ้านรู้หมด เรื่องตัวเองไม่รู้เลย'], ['🥇 รางวัลปากบอกไม่ไหว แต่ไปทุกงาน', 'บ่นว่าเหนื่อยทุกวัน แต่กิจกรรมไม่เคยขาด']
-  ].map(([title, note]) => ({ title, note, sec: 90 })),
+  ].map(([title, note]) => ({ title, note, sec: 90, max: 1 })),
   groups: [
     { name: 'ทีมขาย', names: ['ก้อง', 'มิ้นท์', 'บอล', 'ฝน'] },
     { name: 'ทีมซัพพอร์ต', names: ['ปอ', 'แพรว', 'เจมส์', 'นุ่น'] },
@@ -33,6 +33,7 @@ const SAMPLE = {
 };
 const clone = o => JSON.parse(JSON.stringify(o));
 const clamp = (v, d) => Math.min(600, Math.max(5, parseInt(v, 10) || d));
+const clampMax = v => Math.min(50, Math.max(1, parseInt(v, 10) || 1));      // โหวตได้อย่างน้อย 1 เสมอ
 
 let S = (() => {
   try { const d = JSON.parse(localStorage.getItem(DRAFT_KEY)); if (d && d.awards && d.groups && d.quiz) return d; } catch (e) {}
@@ -67,7 +68,7 @@ const isHeader = (r, re) => re.test((r[0] || '').trim());
 
 function awardsFromRows(rows) {
   return rows.filter((r, i) => !(i === 0 && isHeader(r, /^(รางวัล|ชื่อรางวัล|award|awards|หัวข้อ)$/i)) && (r[0] || '').trim())
-    .map(r => ({ title: r[0].trim(), note: (r[1] || '').trim(), sec: clamp(r[2], 90) }));
+    .map(r => ({ title: r[0].trim(), note: (r[1] || '').trim(), sec: clamp(r[2], 90), max: clampMax(r[3]) }));
 }
 function groupsFromRows(rows) {
   const map = new Map();
@@ -123,7 +124,10 @@ function renderAwards(focus) {
         <label for="an${i}" style="margin-top:12px">คำจำกัดความ (โชว์ใต้ชื่อรางวัล)</label>
         <input type="text" id="an${i}" data-f="note" maxlength="90" value="${esc(a.note)}" placeholder="เช่น น้ำตาไหลง่ายกว่าน้ำประปา">
       </div>
-      <div class="asec"><label for="as${i}">วินาทีให้โหวต</label><input type="number" id="as${i}" data-f="sec" min="5" max="600" value="${a.sec}"></div>
+      <div class="asec">
+        <div><label for="as${i}">วินาทีให้โหวต</label><input type="number" id="as${i}" data-f="sec" min="5" max="600" value="${a.sec}"></div>
+        <div><label for="am${i}">โหวตได้สูงสุด (คน)</label><input type="number" id="am${i}" data-f="max" min="1" max="50" value="${clampMax(a.max)}"></div>
+      </div>
       <div class="acts">${ib('up', 'arrow-up', 'เลื่อนขึ้น', i === 0)}${ib('down', 'arrow-down', 'เลื่อนลง', i === S.awards.length - 1)}${ib('dup', 'copy', 'ทำสำเนา')}${ib('del', 'trash', 'ลบรางวัลนี้')}</div>
     </article>`;
   }).join('');
@@ -214,7 +218,7 @@ function listAction(arr, i, act, make) {
 $('awardList').addEventListener('input', e => {
   const f = e.target.dataset.f; if (!f) return;
   const i = +e.target.closest('.acard').dataset.i;
-  S.awards[i][f] = f === 'sec' ? clamp(e.target.value, 90) : e.target.value; save();
+  S.awards[i][f] = f === 'sec' ? clamp(e.target.value, 90) : f === 'max' ? clampMax(e.target.value) : e.target.value; save();
 });
 $('awardList').addEventListener('click', e => {
   const b = e.target.closest('button[data-act]'); if (!b) return;
@@ -223,12 +227,12 @@ $('awardList').addEventListener('click', e => {
     S.awards[i].title = b.dataset.e + ' ' + S.awards[i].title.replace(LEAD_EMOJI, '');
     renderAwards(`[data-i="${i}"] [data-f=title]`); save(); return;
   }
-  const at = listAction(S.awards, i, act, () => ({ title: '', note: '', sec: 90 }));
+  const at = listAction(S.awards, i, act, () => ({ title: '', note: '', sec: 90, max: 1 }));
   if (at === null) return;
   renderAwards(`[data-i="${at}"] [data-act="${act === 'del' || act === 'dup' ? 'del' : act}"]:not(:disabled), [data-i="${at}"] [data-f=title]`); save();
 });
 
-$('addAward').onclick = () => { S.awards.push({ title: '', note: '', sec: 90 }); renderAwards(`[data-i="${S.awards.length - 1}"] [data-f=title]`); save(); };
+$('addAward').onclick = () => { S.awards.push({ title: '', note: '', sec: 90, max: 1 }); renderAwards(`[data-i="${S.awards.length - 1}"] [data-f=title]`); save(); };
 
 // ผู้เข้าชิง
 function addNames(gi, text) {
@@ -311,7 +315,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu();
 $('btnSample').onclick = () => { closeMenu(); const s = clone(SAMPLE); if (S.kind === 'vote') { S.awards = s.awards; S.groups = s.groups; } else S.quiz = s.quiz; renderAll(); save(); };
 $('btnClear').onclick = () => {
   closeMenu(); if (!confirm('ล้างข้อมูลทั้งหมดของโหมดนี้ใช่ไหม')) return;
-  if (S.kind === 'vote') { S.awards = [{ title: '', note: '', sec: 90 }]; S.groups = [{ name: '', names: [] }]; }
+  if (S.kind === 'vote') { S.awards = [{ title: '', note: '', sec: 90, max: 1 }]; S.groups = [{ name: '', names: [] }]; }
   else S.quiz = [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }];
   renderAll(); save();
 };
@@ -322,7 +326,7 @@ $('btnPaste').onclick = () => {
   $('pasteVote').classList.toggle('hide', !vote); $('pasteQuiz').classList.toggle('hide', vote);
   $('pasteMsg').textContent = '';
   if (vote) {
-    $('pasteAwards').value = tsv(S.awards.map(a => [a.title, a.note, a.sec]));
+    $('pasteAwards').value = tsv(S.awards.map(a => [a.title, a.note, a.sec, clampMax(a.max)]));
     $('pasteNominees').value = tsv(S.groups.flatMap(g => g.names.map(n => [n, g.name])));
   } else $('pasteQs').value = tsv(S.quiz.map(q => [q.prompt, ...q.choices, q.correct >= 0 ? LETTERS[q.correct] : '', q.sec]));
   $('pasteDlg').showModal();
@@ -395,7 +399,7 @@ function build() {
     S.groups.forEach(g => g.names.forEach(n => { choices.push(n); groups.push(g.name.trim()); }));
     if (choices.length < 2) return { error: 'ใส่ผู้เข้าชิงอย่างน้อย 2 คนก่อนนะ', focus: '#groupList [data-f=gadd]' };
     return { kind: 'vote', title, settings: { ...S.settings }, questions: awards.map(a => ({
-      prompt: a.title.trim().replace(/^\d+[.)]\s*/, ''), note: a.note.trim(), choices, groups, duration: clamp(a.sec, 90) })) };
+      prompt: a.title.trim().replace(/^\d+[.)]\s*/, ''), note: a.note.trim(), choices, groups, duration: clamp(a.sec, 90), max_votes: Math.min(clampMax(a.max), choices.length) })) };
   }
   const out = [];
   for (let i = 0; i < S.quiz.length; i++) {

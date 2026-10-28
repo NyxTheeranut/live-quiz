@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261028203942">
-<link rel="stylesheet" href="host.css?v=20261028203942">
+<link rel="stylesheet" href="theme.css?v=20261028205121">
+<link rel="stylesheet" href="host.css?v=20261028205121">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261028203942"></script>
+<script src="config.js?v=20261028205121"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -147,6 +147,7 @@
 <section id="h-q" class="hide qscreen">
   <div class="qtop">
     <span class="chip" id="qnum"></span>
+    <span class="chip hide" id="qmax"></span>
     <span id="qans" class="chip num" role="status"></span>
     <span id="qtimer" class="timer num"></span>
   </div>
@@ -217,7 +218,7 @@
     <h3>วางจาก Google Sheets หรือ Excel</h3>
     <p class="hint">เลือกเซลล์ในชีต คัดลอก แล้ววางในช่องด้านล่าง ข้ามแถวหัวตารางได้เอง</p>
     <div id="pasteVote">
-      <label for="pasteAwards">รางวัล: ชื่อรางวัล, คำจำกัดความ, วินาที</label>
+      <label for="pasteAwards">รางวัล: ชื่อรางวัล, คำจำกัดความ, วินาที, โหวตได้สูงสุดกี่คน (เว้นว่าง = 1)</label>
       <textarea id="pasteAwards" rows="6"></textarea>
       <label for="pasteNominees">ผู้เข้าชิง: ชื่อ, กลุ่ม</label>
       <textarea id="pasteNominees" rows="6"></textarea>
@@ -251,9 +252,9 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="fx.js?v=20261028203942"></script>
-<script src="sound.js?v=20261028203942"></script>
-<script src="studio.js?v=20261028203942"></script>
-<script src="host.js?v=20261028203942"></script>
+<script src="fx.js?v=20261028205121"></script>
+<script src="sound.js?v=20261028205121"></script>
+<script src="studio.js?v=20261028205121"></script>
+<script src="host.js?v=20261028205121"></script>
 </body>
 </html>

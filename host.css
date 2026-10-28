@@ -30,7 +30,10 @@
 
 /* award / question cards */
 .acard, .qcard { position: relative; display: grid; gap: 14px 16px; padding: 18px; background: var(--surface); border: 2px solid var(--line); border-radius: var(--r-card); animation: rise .4s var(--ease) both; }
-.acard { grid-template-columns: 52px minmax(0, 1fr) 96px auto; align-items: start; }
+.acard { grid-template-columns: 52px minmax(0, 1fr) 210px auto; align-items: start; }
+.asec { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.asec label { line-height: 1.25; min-height: 2.5em; display: flex; align-items: flex-end; }
+.asec input { padding: 12px 8px; text-align: center; }
 .anum { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--tint); color: var(--on-c); font: 800 1.4rem var(--font-display); }
 .acard label, .qcard label.mini { margin: 0 0 4px; font-size: .85rem; color: var(--muted); font-weight: 600; }
 .acard .trow { display: flex; gap: 8px; align-items: stretch; }

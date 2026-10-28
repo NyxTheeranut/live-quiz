@@ -102,6 +102,10 @@ $('createBtn').onclick = async () => {
     if (el) { el.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' }); el.focus({ preventScroll: true }); }
     return;
   }
+  if (b.kind === 'vote' && b.questions.some(q => q.max_votes > 1)) {       // โหวตหลายคนต้องใช้ฐานข้อมูลเวอร์ชันใหม่
+    const v = await db.rpc('schema_version');
+    if (v.error || !(v.data >= 2)) { $('setupErr').textContent = 'รางวัลที่ตั้งให้โหวตได้หลายคนต้องอัปเดตฐานข้อมูลก่อน: เปิด Supabase > SQL Editor > วางไฟล์ schema.sql ทั้งไฟล์ > Run (ไม่ลบข้อมูลเดิม) แล้วกดสร้างเกมอีกครั้ง หรือตั้งทุกรางวัลเป็นโหวตได้ 1 คน'; return; }
+  }
   $('createBtn').disabled = true; $('setupErr').textContent = '';
   try { const old = JSON.parse(localStorage.getItem('quiz-host')); if (old && old.game_id) { await endGame(old); localStorage.removeItem('quiz-host'); } } catch (e) {}
   const { data, error } = await db.rpc('create_game', { p_title: b.title, p_questions: b.questions, p_kind: b.kind });
@@ -166,11 +170,12 @@ async function askQuestion(i) {
   const { error } = await host('set_phase', { p_phase: 'question', p_q: i });
   if (error) return alert(error.message);
   G.qi = i; saveGame();
-  await send({ type: 'question', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', choices: q.choices, groups: q.groups || null, hideText: !vote && !!(q.groups && q.groups.hideText), duration: q.duration });
+  await send({ type: 'question', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', choices: q.choices, groups: q.groups || null, hideText: !vote && !!(q.groups && q.groups.hideText), maxVotes: q.max_votes || 1, duration: q.duration });
 
   $('qnum').textContent = `${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
   $('qprompt').textContent = q.prompt; restart($('qprompt'), 'rise .6s var(--ease) both');
   $('qnote').textContent = q.note || '';
+  $('qmax').textContent = 'โหวตได้คนละ ' + (q.max_votes || 1) + ' คน'; $('qmax').classList.toggle('hide', !vote || !(q.max_votes > 1));
   $('qans').textContent = vote ? 'ยังไม่มีใครโหวต' : 'ยังไม่มีใครตอบ';
   $('qbar').style.transform = 'scaleX(0)';
   $('voteLive').classList.toggle('hide', !vote);

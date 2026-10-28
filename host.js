@@ -6,6 +6,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+  if (id !== 'h-q') leaveFog();            // เปิดกราฟจริงคืนก็ต่อเมื่อออกจากหน้าโหวตไปแล้วเท่านั้น
   $('tbar').classList.add('hide');
   window.scrollTo(0, 0);
 };
@@ -13,7 +14,7 @@ const restart = (el, name) => { el.style.animation = 'none'; void el.offsetWidth
 
 const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false };
 const cfg = () => ({ ...DEFAULT_CFG, ...((G && G.settings) || {}) });
-let qEnd = 0, fogged = false, fogIntensity = 0, fogMode = 'normal', susT = null, fogTxtT = null;
+let qEnd = 0, fogged = false, fogIntensity = 0, fogMode = 'normal', fogTxtT = null;
 let G = null;            // { game_id, pin, host_token, kind, title, questions, qi }
 let channel = null, poll = null, tick = null, revealing = false, lastTally = '', lastTallyAt = 0, view = 'person';
 
@@ -206,7 +207,7 @@ async function askQuestion(i) {
     if (vote) {
       paintVote(data.dist, data.answered); broadcastTally(i, data);
       const c = cfg();
-      if (!fogged && c.hideAt !== 'off' && data.players > 0 && data.answered / data.players * 100 >= +c.hideAt) enterFog();
+      if (!fogged && c.hideAt !== 'off' && data.players > 0 && data.answered / data.players * 100 >= +c.hideAt) enterFog(data.answered);
       if (fogged) updateFog(data.answered, data.players);
     }
     else if (data.players > 0 && data.answered >= data.players) reveal();   // ควิซ: ตอบครบก็เฉลยเลย
@@ -225,31 +226,92 @@ function broadcastTally(i, data) {
   send({ type: 'tally', idx: i, answered: data.answered, players: data.players, live, top });
 }
 
-// ---------- โหมดลุ้น: หมอกบังอันดับ ----------
-// ชื่อที่กระพริบสุ่มไม่เกี่ยวกับคะแนนจริงเลย จึงไม่มีทางรู้ใครนำ แค่สร้างบรรยากาศ
+// ---------- โหมดลุ้น: กราฟเส้นสีฟ้าที่ถูกหมอกบัง ----------
+// เส้นทุกเส้นขยับแบบสุ่มเอง ไม่ได้มาจากคะแนนจริง จึงไม่มีทางรู้ว่าใครนำ
+// มีแค่ "จังหวะ" ที่ผูกกับการโหวตจริง: ทุกครั้งที่มีคนโหวตเพิ่ม เส้นจะสะบัดขึ้นลงให้ดูเหมือนอันดับกำลังเปลี่ยน
 const FOG_LINES = {
   normal: ['คะแนนถูกซ่อนไว้แล้ว', 'มีคนกำลังนำอยู่...', 'พลิกเกมได้ทุกเมื่อ', 'ใครกันนะที่จะได้มงกุฎ?', 'ห้ามกะพริบตา!'],
   near: ['ใกล้ครบแล้ว!', 'ใครยังไม่โหวตรีบเลย!', 'อีกไม่กี่คนเท่านั้น...'],
   last: ['ใกล้หมดเวลาแล้ว!', 'หัวใจจะวาย!', 'ลุ้นสุดตัว!']
 };
-function sparkle() {
-  const els = $('suspects').children;
-  if (!els.length) return;
-  [...$('suspects').querySelectorAll('.lit')].forEach(e => e.classList.remove('lit'));
-  const n = Math.min(3, 1 + Math.floor(els.length / 20) + (fogIntensity > .6 ? 1 : 0));
-  for (let k = 0; k < n; k++) els[(Math.random() * els.length) | 0].classList.add('lit');
-  sfx.blip();
-  susT = setTimeout(sparkle, reduceMotion ? 1600 : 720 - 480 * fogIntensity);
+const FOG_N = 8, FOG_M = 120, FOG_STEP = .11;        // จำนวนเส้น, จำนวนจุดบนแกนเวลา, วินาทีต่อจุด
+const FOG = { cv: null, ctx: null, W: 0, H: 0, lines: [], clouds: [], acc: 0, last: 0, raf: 0, still: null, seen: 0, blue: '#3DB9FF', ink: '#FFF8EC' };
+
+function stepLine(L) {
+  const vol = .007 + .02 * fogIntensity;
+  L.vel += (Math.random() - .5) * vol * 2 + (.5 - L.v) * .0022;
+  L.vel *= .91; L.v += L.vel;
+  if (L.v < .1) { L.v = .1; L.vel = Math.abs(L.vel); }
+  if (L.v > .9) { L.v = .9; L.vel = -Math.abs(L.vel); }
+  L.hist.push(L.v); L.hist.shift();
 }
-function enterFog() {
-  fogged = true; fogMode = 'normal'; fogIntensity = 0;
-  const q = G.questions[G.qi];
+function fogJolt(n) {                                    // มีคนโหวตเพิ่ม: เส้นสะบัด
+  for (let k = 0; k < Math.min(4, n + 1); k++) {
+    const L = FOG.lines[(Math.random() * FOG.lines.length) | 0];
+    L.vel += (Math.random() < .5 ? -1 : 1) * (.035 + .04 * Math.random());
+  }
+  sfx.pop();
+}
+function fogResize() {
+  const r = FOG.cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  FOG.W = r.width; FOG.H = r.height;
+  FOG.cv.width = Math.round(r.width * dpr); FOG.cv.height = Math.round(r.height * dpr);
+  FOG.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function drawFog(frac, ts) {
+  const { ctx, W, H } = FOG, dx = W / (FOG_M - 2), pad = 26;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(183,195,223,.10)'; ctx.lineWidth = 1;                  // เส้นกริดจาง ๆ
+  for (let g = 1; g < 4; g++) { ctx.beginPath(); ctx.moveTo(0, H * g / 4); ctx.lineTo(W, H * g / 4); ctx.stroke(); }
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  FOG.lines.forEach((L, li) => {
+    const pts = L.hist.map((v, i) => [(i - frac) * dx, pad + (1 - v) * (H - pad * 2)]);
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length - 1; i++) ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+    ctx.globalAlpha = L.a; ctx.strokeStyle = FOG.blue; ctx.lineWidth = L.w;
+    ctx.shadowColor = FOG.blue; ctx.shadowBlur = 14; ctx.stroke(); ctx.shadowBlur = 0;
+    const [hx, hy] = pts[pts.length - 2];                                          // หัวเส้นกะพริบ
+    ctx.globalAlpha = .9; ctx.fillStyle = FOG.ink;
+    ctx.beginPath(); ctx.arc(hx, hy, 4 + 1.6 * Math.sin(ts * 5 + li), 0, 7); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  FOG.clouds.forEach(c => {                                                        // ก้อนหมอกลอยบังเส้น
+    const x = (c.x + Math.sin(ts * c.s + c.p) * c.dx) * W, y = (c.y + Math.cos(ts * c.s * .8 + c.p) * .05) * H, r = c.r * W;
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(214,232,255,${c.a})`); gr.addColorStop(1, 'rgba(214,232,255,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  });
+  const haze = ctx.createLinearGradient(0, 0, 0, H);                              // ขอบบนล่างจางเข้าฉากหลัง
+  haze.addColorStop(0, 'rgba(23,35,63,.55)'); haze.addColorStop(.25, 'rgba(23,35,63,0)'); haze.addColorStop(.75, 'rgba(23,35,63,0)'); haze.addColorStop(1, 'rgba(23,35,63,.6)');
+  ctx.fillStyle = haze; ctx.fillRect(0, 0, W, H);
+}
+function fogFrame(t) {
+  if (!fogged) return;
+  FOG.raf = requestAnimationFrame(fogFrame);
+  FOG.acc += Math.min(.1, (t - FOG.last) / 1000); FOG.last = t;
+  while (FOG.acc >= FOG_STEP) { FOG.acc -= FOG_STEP; FOG.lines.forEach(stepLine); }
+  drawFog(FOG.acc / FOG_STEP, t / 1000);
+}
+function enterFog(answered = 0) {
+  fogged = true; fogMode = 'normal'; fogIntensity = 0; FOG.seen = answered;
   $('chart').classList.add('hide'); $('chartEmpty').classList.add('hide'); $('viewSeg').classList.add('hide');
-  $('fog').classList.remove('hide', 'final'); restart($('fog'), 'rise .6s var(--ease) both');
-  $('suspects').innerHTML = q.choices.map((c, k) => `<span class="sus tint${k % 4 + 1}">${esc(c)}</span>`).join('');
+  $('fog').classList.remove('hide'); restart($('fog'), 'rise .6s var(--ease) both');
+  FOG.cv = $('fogCanvas'); FOG.ctx = FOG.cv.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  FOG.blue = css.getPropertyValue('--c2').trim() || FOG.blue; FOG.ink = css.getPropertyValue('--text').trim() || FOG.ink;
+  fogResize();
+  FOG.lines = Array.from({ length: FOG_N }, (_, i) => {
+    const L = { v: .2 + Math.random() * .6, vel: 0, hist: new Array(FOG_M).fill(.5), w: 2.4 + (i % 3) * .9, a: .42 + .5 * (i / FOG_N) };
+    for (let k = 0; k < FOG_M; k++) stepLine(L);
+    return L;
+  });
+  FOG.clouds = Array.from({ length: 6 }, (_, i) => ({ x: .1 + i * .17, y: .25 + (i % 3) * .25, r: .3 + (i % 2) * .12, a: .16 + (i % 3) * .04, s: .18 + i * .05, p: i * 1.7, dx: .08 + i * .01 }));
+  FOG.last = performance.now(); FOG.acc = 0;
+  cancelAnimationFrame(FOG.raf); clearInterval(FOG.still);
+  if (reduceMotion) { FOG.still = setInterval(() => { FOG.lines.forEach(stepLine); drawFog(0, 0); }, 1500); drawFog(0, 0); }
+  else FOG.raf = requestAnimationFrame(fogFrame);
   $('fogText').textContent = FOG_LINES.normal[0];
   sfx.fog();
-  clearTimeout(susT); sparkle();
   let li = 0; clearInterval(fogTxtT);
   fogTxtT = setInterval(() => {
     const lines = FOG_LINES[fogMode]; li = (li + 1) % lines.length;
@@ -258,19 +320,19 @@ function enterFog() {
 }
 function updateFog(answered, players) {
   const pct = players ? Math.min(1, answered / players) : 0, left = Math.max(0, (qEnd - Date.now()) / 1000);
-  const dur = G.questions[G.qi].duration;
-  fogIntensity = Math.max(pct, 1 - left / dur);
-  $('orbPct').textContent = Math.round(pct * 100) + '%';
+  fogIntensity = Math.max(pct, 1 - left / G.questions[G.qi].duration);
   $('fogSub').textContent = `โหวตแล้ว ${answered} จาก ${players} คน`;
-  $('orb').style.setProperty('--beat', (1.3 - .8 * fogIntensity).toFixed(2) + 's');
+  if (answered > FOG.seen) { fogJolt(answered - FOG.seen); if (reduceMotion) drawFog(0, 0); }
+  FOG.seen = answered;
   const mode = left <= 10 ? 'last' : pct >= .9 ? 'near' : 'normal';
   if (mode !== fogMode) { fogMode = mode; $('fogText').textContent = FOG_LINES[mode][0]; restart($('fogText'), 'rise .5s var(--ease) both'); }
-  $('fog').classList.toggle('final', mode === 'last');
 }
 function leaveFog() {
-  clearTimeout(susT); clearInterval(fogTxtT); fogged = false;
+  if (!fogged) return;
+  fogged = false; cancelAnimationFrame(FOG.raf); clearInterval(FOG.still); clearInterval(fogTxtT);
   $('fog').classList.add('hide'); $('chart').classList.remove('hide'); $('viewSeg').classList.remove('hide');
 }
+window.addEventListener('resize', () => { if (fogged) fogResize(); });
 
 // ---------- กราฟคะแนนสด (แถวเลื่อนขึ้นลงตามอันดับ) ----------
 const ROW = 76, TOPK = 6;
@@ -338,11 +400,18 @@ async function reveal() {
   if (revealing) return; revealing = true;
   stopTimers();
   const i = G.qi, q = G.questions[i];
-  leaveFog(); Sound.stopMusic(.25);
-  await host('set_phase', { p_phase: 'reveal', p_q: i });
+  Sound.stopMusic(.25);
   $('rprompt').textContent = q.prompt;
   const last = i + 1 >= G.questions.length;
   $('nextBtn').disabled = true;
+  if (G.kind === 'vote') {            // ขึ้นหน้าประกาศผลทันที ก่อนรอเน็ต จะได้ไม่มีภาพอันดับหลุดให้เห็น
+    $('voteResult').classList.remove('hide'); $('quizResult').classList.add('hide');
+    $('stage').classList.add('pending'); $('stage').classList.remove('pop');
+    $('drum').classList.remove('done'); $('drum').textContent = 'กำลังนับคะแนน...';
+    $('winner').textContent = '...'; $('winnerSub').textContent = ''; $('pod').innerHTML = ''; $('runners').innerHTML = '';
+    show('h-reveal');
+  }
+  await host('set_phase', { p_phase: 'reveal', p_q: i });
 
   if (G.kind === 'vote') return revealVote(i, q, last);
 
@@ -372,10 +441,7 @@ async function revealVote(i, q, last) {
   const winners = ranked.filter(r => r.n === topN && topN > 0);
   const winText = winners.length ? winners.map(r => q.choices[r.k]).join(' และ ') : 'ไม่มีใครโหวตเลย';
 
-  $('stage').classList.add('pending'); $('stage').classList.remove('pop');
-  $('drum').classList.remove('done'); $('winner').textContent = '...'; $('winnerSub').textContent = '';
-  $('pod').innerHTML = ''; $('runners').innerHTML = '';
-  show('h-reveal');
+  $('drum').textContent = 'กำลังเปิดซอง...';
 
   // พิธีรับรางวัล: เปิดอันดับ 3 แล้วอันดับ 2 ทีละคน ก่อนเฉลยผู้ชนะ
   const c = cfg();

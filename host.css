@@ -111,7 +111,7 @@ dialog::backdrop { background: rgba(8, 12, 22, .72); backdrop-filter: blur(4px);
 .qtop { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
 .qtop .timer { margin-left: auto; font: 800 3.4rem/1 var(--font-display); }
 .qtop .timer.low { color: var(--c1); animation: bump .5s var(--ease) infinite; }
-.qtitle { font-size: clamp(2.2rem, 6vw, 4.2rem); margin: 14px 0 6px; animation: rise .6s var(--ease) both; }
+.qtitle { font-size: clamp(2.6rem, 7.4vw, 5.4rem); line-height: 1.1; text-align: center; margin: 18px 0 8px; animation: rise .6s var(--ease) both; }
 .progress { height: 10px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; margin: 16px 0 20px; }
 .progress i { display: block; height: 100%; background: var(--c2); transform-origin: left; transform: scaleX(0); transition: transform .5s var(--ease); }
 .tools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
@@ -238,10 +238,10 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .fog-sub { position: relative; color: var(--muted); font-size: 1.35rem; margin-top: 4px; }
 
 /* ================= Question preview (host waits on the question until "next") ================= */
-.prescreen { max-width: 1100px; margin: 0 auto; min-height: 100dvh; padding: 40px 24px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 14px; }
-.pre-title { font-size: clamp(2.8rem, 9vw, 7rem); line-height: 1.1; margin: 8px 0 0; animation: rise .6s var(--ease) both; }
-.pre-note { font-size: clamp(1.3rem, 3vw, 2.2rem); color: var(--muted); margin: 0; max-width: 30ch; animation: rise .6s var(--ease) .12s both; }
-.pre-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.prescreen { max-width: 1240px; margin: 0 auto; min-height: 100dvh; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }
+.pre-title { font-size: clamp(3rem, 10.5vw, 8.5rem); line-height: 1.08; margin: 8px 0 0; animation: rise .6s var(--ease) both; }
+.pre-note { font-size: clamp(1.3rem, 3vw, 2.2rem); color: var(--muted); margin: 0 auto; max-width: 30ch; animation: rise .6s var(--ease) .12s both; }
+.pre-meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
 .prescreen .btn.big { margin-top: 22px; animation: pop .55s var(--spring) .3s both; }
 .prescreen .hint { margin-top: 2px; }
 @media (max-width: 900px) { .prescreen { padding: 28px 16px; } }
@@ -282,14 +282,23 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 #cloud.censor .cw .in { filter: blur(.14em); user-select: none; }   /* big words keep a word-like silhouette */
 .cw .smudge { filter: blur(.14em); }
 #chart.censor .gp { filter: blur(.32em); user-select: none; }
-.censornote { display: flex; align-items: center; justify-content: center; gap: 10px; width: fit-content; margin: 14px auto 0; padding: 8px 20px; border-radius: var(--r-pill); background: var(--surface-2); border: 2px solid var(--c3); font: 700 1.1rem var(--font-display); }
-.censornote i { color: var(--c3); font-size: 1.4rem; }
 
 /* ================= Everyone has voted: timer frozen, one big centred button ================= */
 .timer.frozen { color: var(--c4); }
 .tbar.frozen i { background: var(--c4); }
-.tools.allin { justify-content: center; }
-.tools.allin .segs { display: none; }
+.tools.allin { display: none; }
 #closeBtn.allin { position: relative; min-height: 72px; padding: 0 52px; font-size: 1.7rem; animation: pop .5s var(--spring) both; }
 #closeBtn.allin::after { content: ""; position: absolute; inset: -4px; border-radius: inherit; border: 3px solid var(--accent); pointer-events: none; animation: ring 1.6s ease-out .5s infinite; }   /* the ring pulses, the button itself stays still */
 @keyframes ring { from { transform: scale(1); opacity: .85; } to { transform: scale(1.18, 1.35); opacity: 0; } }
+
+.qscreen .award-note { text-align: center; font-size: 1.3rem; }
+
+/* ================= Everyone has voted: one centred block over the dimmed results ================= */
+.livearea { position: relative; }
+.allstage { position: absolute; inset: 0; z-index: 6; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 24px; text-align: center; pointer-events: none; }
+.allstage > * { pointer-events: auto; }
+.livearea.allin { min-height: clamp(320px, 46vh, 440px); }
+.livearea.allin .allstage { display: flex; }
+.livearea.allin > :not(.allstage) { opacity: .16; filter: blur(3px); pointer-events: none; transition: opacity .4s var(--ease); }
+.all-title { font: 800 clamp(2.2rem, 6vw, 4.6rem)/1.15 var(--font-display); animation: pop .5s var(--spring) both; text-shadow: 0 2px 24px rgba(0, 0, 0, .5); }
+.livearea.allin .fog-center { display: none; }   /* the centred block replaces the fog text */

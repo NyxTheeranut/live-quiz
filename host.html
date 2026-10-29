@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029104334">
-<link rel="stylesheet" href="host.css?v=20261029104334">
+<link rel="stylesheet" href="theme.css?v=20261029105833">
+<link rel="stylesheet" href="host.css?v=20261029105833">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029104334"></script>
+<script src="config.js?v=20261029105833"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -171,7 +171,6 @@
   <p id="preNote" class="pre-note"></p>
   <div class="pre-meta"><span class="chip num" id="preTime"></span><span class="chip hide" id="preMax"></span></div>
   <button class="btn big" id="preGo"></button>
-  <p class="hint" id="preHint"></p>
 </section>
 
 <!-- 3. กำลังถาม / กำลังโหวต -->
@@ -196,19 +195,21 @@
       </div>
       <button class="btn" id="closeBtn"><i class="ph-fill ph-trophy" aria-hidden="true"></i><span id="closeLabel">ปิดโหวตและประกาศผล</span></button>
     </div>
-    <div id="censorNote" class="censornote hide" role="status"><i class="ph-bold ph-eye-slash" aria-hidden="true"></i><span id="censorText">ชื่อถูกปิดไว้ เห็นแค่คะแนน</span></div>
-    <div id="fog" class="fog hide">
-      <div id="fogChart" class="chart fogchart" aria-hidden="true"></div>
-      <div id="fogCloud" class="cloud fogcloud hide" aria-hidden="true"></div>
-      <div class="veil" aria-hidden="true"></div>
-      <div class="fog-center">
-        <div id="fogText" class="fog-text" aria-live="polite">คะแนนถูกซ่อนไว้แล้ว</div>
-        <div id="fogSub" class="fog-sub num"></div>
+    <div id="liveArea" class="livearea">
+      <div id="fog" class="fog hide">
+        <div id="fogChart" class="chart fogchart" aria-hidden="true"></div>
+        <div id="fogCloud" class="cloud fogcloud hide" aria-hidden="true"></div>
+        <div class="veil" aria-hidden="true"></div>
+        <div class="fog-center">
+          <div id="fogText" class="fog-text" aria-live="polite">คะแนนถูกซ่อนไว้แล้ว</div>
+        </div>
       </div>
+      <div id="chart" class="chart"></div>
+      <div id="cloud" class="cloud hide" role="img" aria-label="กลุ่มคำแสดงคะแนนสด ชื่อที่ได้คะแนนมากจะตัวใหญ่"></div>
+      <div id="chartEmpty" class="empty"><i class="ph-bold ph-hand-pointing bob" aria-hidden="true"></i>รอคะแนนแรกอยู่นะ...</div>
+      <!-- ทุกคนโหวตครบ: ข้อความกับปุ่ม "ประกาศผล" อยู่กลางจอ (ปุ่มถูกย้ายมาที่นี่ตอนครบ) -->
+      <div id="allStage" class="allstage" aria-live="polite"><div class="all-title">โหวตครบทุกคนแล้ว!</div></div>
     </div>
-    <div id="chart" class="chart"></div>
-    <div id="cloud" class="cloud hide" role="img" aria-label="กลุ่มคำแสดงคะแนนสด ชื่อที่ได้คะแนนมากจะตัวใหญ่"></div>
-    <div id="chartEmpty" class="empty"><i class="ph-bold ph-hand-pointing bob" aria-hidden="true"></i>รอคะแนนแรกอยู่นะ...</div>
   </div>
 
   <div id="quizLive" class="hide">
@@ -292,10 +293,10 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261029104334"></script>
-<script src="fx.js?v=20261029104334"></script>
-<script src="sound.js?v=20261029104334"></script>
-<script src="studio.js?v=20261029104334"></script>
-<script src="host.js?v=20261029104334"></script>
+<script src="ui.js?v=20261029105833"></script>
+<script src="fx.js?v=20261029105833"></script>
+<script src="sound.js?v=20261029105833"></script>
+<script src="studio.js?v=20261029105833"></script>
+<script src="host.js?v=20261029105833"></script>
 </body>
 </html>

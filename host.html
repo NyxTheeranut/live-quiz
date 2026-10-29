@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029112233">
-<link rel="stylesheet" href="host.css?v=20261029112233">
+<link rel="stylesheet" href="theme.css?v=20261029122354">
+<link rel="stylesheet" href="host.css?v=20261029122354">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029112233"></script>
+<script src="config.js?v=20261029122354"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -38,6 +38,7 @@
       <details class="menu" id="importMenu">
         <summary class="btn ghost small"><i class="ph-bold ph-upload-simple" aria-hidden="true"></i>นำเข้า / ส่งออก</summary>
         <div class="menupanel">
+          <button type="button" id="btnBulk2"><i class="ph-bold ph-clipboard-text" aria-hidden="true"></i>วางทั้งหมดทีเดียว (ง่ายที่สุด)</button>
           <button type="button" id="btnSample"><i class="ph-bold ph-sparkle" aria-hidden="true"></i>ใส่ตัวอย่างให้ดู</button>
           <button type="button" id="btnPaste"><i class="ph-bold ph-table" aria-hidden="true"></i>วางจาก Google Sheets หรือ Excel</button>
           <button type="button" id="btnSheet"><i class="ph-bold ph-cloud-arrow-down" aria-hidden="true"></i>โหลดจากลิงก์ชีต</button>
@@ -59,9 +60,15 @@
       </div>
     </div>
 
-    <div class="titlefield">
-      <label for="title">ชื่อกิจกรรม</label>
-      <input type="text" id="title" maxlength="60">
+    <div class="studiotop">
+      <div class="titlefield">
+        <label for="title">ชื่อกิจกรรม</label>
+        <input type="text" id="title" maxlength="60">
+      </div>
+      <div class="quickacts">
+        <button type="button" class="btn small" id="btnBulk"><i class="ph-bold ph-clipboard-text" aria-hidden="true"></i>วางทั้งหมดทีเดียว</button>
+        <button type="button" class="btn ghost small" id="btnBlank"><i class="ph-bold ph-file-plus" aria-hidden="true"></i>เริ่มใหม่ว่างเปล่า</button>
+      </div>
     </div>
     <p id="setupErr" class="err" role="alert"></p>
 
@@ -234,18 +241,32 @@
   </div>
   <div id="quizResult" class="hide">
     <div id="bars" class="qbars"></div>
-    <div id="qpod" class="pod" aria-label="ผู้นำคะแนน"></div>
   </div>
-  <!-- แตะที่ไหนก็ได้บนหน้าจอเพื่อไปต่อ (ปุ่มเต็มจอ แต่มองเห็นแค่คำใบ้ด้านล่าง) -->
-  <button type="button" class="tapnext hide" id="nextBtn" disabled>
-    <span class="taphint"><i class="ph-bold ph-hand-tap" aria-hidden="true"></i><span id="nextLabel"></span><i class="ph-bold ph-caret-double-right" aria-hidden="true"></i></span>
-  </button>
 </section>
+
+<!-- 4.5 อันดับหลังแต่ละข้อ (ควิซ): แท่งแนวนอนเลื่อนขึ้นลงตามอันดับใหม่ -->
+<section id="h-board" class="hide boardscreen">
+  <div class="board-head">
+    <div><h2 id="boardTitle">อันดับ</h2><p id="boardNote" class="boardnote"></p></div>
+    <span class="chip" id="boardChip"></span>
+  </div>
+  <div id="boardArea" class="boardarea"><div id="boardRows" class="boardrows" role="list" aria-label="อันดับคะแนน"></div></div>
+</section>
+
+<!-- แตะที่ไหนก็ได้บนหน้าจอเพื่อไปต่อ (ปุ่มเต็มจอ แต่มองเห็นแค่คำใบ้ด้านล่าง) ใช้ได้ทั้งหน้าประกาศผลและหน้าอันดับ -->
+<button type="button" class="tapnext hide" id="nextBtn" disabled>
+  <span class="taphint"><i class="ph-bold ph-hand-tap" aria-hidden="true"></i><span id="nextLabel"></span><i class="ph-bold ph-caret-double-right" aria-hidden="true"></i></span>
+</button>
 
 <!-- 5. จบเกม -->
 <section id="h-end" class="hide endscreen">
   <h1 id="endTitle"></h1>
   <ol id="podium" class="hall"></ol>
+  <!-- ผลสุดท้ายของควิซ: โพเดียมอันดับ 1 ถึง 3 ด้านบน แล้วอันดับ 4 ถึง 10 เป็นแท่งแนวนอน -->
+  <div id="finalQuiz" class="finalquiz hide">
+    <div id="finalPod" class="pod" aria-label="อันดับ 1 ถึง 3"></div>
+    <div id="finalRows" class="finalrows" role="list" aria-label="อันดับ 4 ถึง 10"></div>
+  </div>
   <div class="row">
     <button class="btn" id="csvBtn"><i class="ph-bold ph-download-simple" aria-hidden="true"></i>ดาวน์โหลดผล (CSV)</button>
     <button class="btn ghost" id="newBtn">เริ่มเกมใหม่</button>
@@ -254,6 +275,27 @@
 </section>
 
 <!-- กล่องโต้ตอบ -->
+<dialog id="bulkDlg">
+  <form method="dialog" class="dlg">
+    <h3 id="bulkTitle">วางทั้งหมดทีเดียว</h3>
+    <p class="hint" id="bulkHint"></p>
+    <label for="bulkText" class="sr-only">ข้อมูลทั้งหมด</label>
+    <textarea id="bulkText" rows="13" spellcheck="false" autocomplete="off"></textarea>
+    <p id="bulkPreview" class="bulkprev" role="status"></p>
+    <details class="bulkex"><summary>ดูตัวอย่างรูปแบบที่วางได้</summary><pre id="bulkExample"></pre></details>
+    <div class="chipset" role="radiogroup" aria-label="วิธีนำเข้า" style="margin-top:12px">
+      <label><input type="radio" name="bulkMode" value="replace" checked><span>แทนที่ของเดิม</span></label>
+      <label><input type="radio" name="bulkMode" value="append"><span>เพิ่มต่อท้าย</span></label>
+    </div>
+    <p id="bulkErr" class="err" role="alert"></p>
+    <div class="row">
+      <button class="btn" id="bulkGo" value="ok">นำเข้า</button>
+      <button class="btn ghost" id="bulkFill" type="button">ดึงของที่มีอยู่มาแก้</button>
+      <button class="btn ghost" value="cancel">ยกเลิก</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="pasteDlg">
   <form method="dialog" class="dlg">
     <h3>วางจาก Google Sheets หรือ Excel</h3>
@@ -293,10 +335,10 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261029112233"></script>
-<script src="fx.js?v=20261029112233"></script>
-<script src="sound.js?v=20261029112233"></script>
-<script src="studio.js?v=20261029112233"></script>
-<script src="host.js?v=20261029112233"></script>
+<script src="ui.js?v=20261029122354"></script>
+<script src="fx.js?v=20261029122354"></script>
+<script src="sound.js?v=20261029122354"></script>
+<script src="studio.js?v=20261029122354"></script>
+<script src="host.js?v=20261029122354"></script>
 </body>
 </html>

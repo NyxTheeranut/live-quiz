@@ -177,7 +177,7 @@ end $$;
 -- Player: answer (quiz) or vote (vote) on the open question.
 -- Quiz: time and score are computed on the server; one answer only.
 --   Score: correct = 500..1000 (faster = more), wrong = 0.
--- Vote: no score; a player may change their vote while the question is open.
+-- Vote: no score; ONE vote per person per award. It cannot be changed afterwards.
 create or replace function submit_answer(p_player uuid, p_idx int, p_choice int)
 returns json language plpgsql security definer set search_path = public as $$
 declare g games; dur int; n int; ms int; ok boolean; pts int;
@@ -192,8 +192,11 @@ begin
   ms := (extract(epoch from (clock_timestamp() - g.q_started_at)) * 1000)::int;
   if ms > dur * 1000 + 1500 then raise exception 'หมดเวลาสำหรับข้อนี้แล้ว'; end if; -- 1.5 s network grace
 
+  perform pg_advisory_xact_lock(hashtext(p_player::text || ':' || p_idx));       -- a fast double tap cannot slip two votes in
   if g.kind = 'vote' then
-    delete from answers where player_id = p_player and idx = p_idx;
+    if exists (select 1 from answers where player_id = p_player and idx = p_idx) then
+      raise exception 'คุณโหวตรางวัลนี้ไปแล้ว เปลี่ยนไม่ได้';
+    end if;
     insert into answers (player_id, game_id, idx, choice, elapsed_ms, is_correct, points)
     values (p_player, g.id, p_idx, p_choice, ms, null, 0);
     return json_build_object('accepted', true);
@@ -215,7 +218,7 @@ exception when unique_violation then
   return json_build_object('accepted', false, 'reason', 'ตอบข้อนี้ไปแล้ว');
 end $$;
 
--- Player (vote): set my picks for the open award. Replaces any earlier picks.
+-- Player (vote): cast my picks for the open award, once. They cannot be changed afterwards.
 -- Between 1 and the award's max_votes distinct nominees.
 create or replace function submit_votes(p_player uuid, p_idx int, p_choices int[])
 returns json language plpgsql security definer set search_path = public as $$
@@ -239,14 +242,17 @@ begin
     if c < 0 or c >= n then raise exception 'ตัวเลือกไม่ถูกต้อง'; end if;
   end loop;
 
-  delete from answers where player_id = p_player and idx = p_idx;
+  perform pg_advisory_xact_lock(hashtext(p_player::text || ':' || p_idx));
+  if exists (select 1 from answers where player_id = p_player and idx = p_idx) then
+    raise exception 'คุณโหวตรางวัลนี้ไปแล้ว เปลี่ยนไม่ได้';
+  end if;
   insert into answers (player_id, game_id, idx, choice, elapsed_ms, is_correct, points)
     select p_player, g.id, p_idx, x, ms, null, 0 from unnest(picks) x;
   return json_build_object('accepted', true, 'count', array_length(picks, 1));
 end $$;
 
 -- Lets the host page check that this file has been run (multi-vote needs it).
-create or replace function schema_version() returns int language sql immutable as $$ select 2 $$;
+create or replace function schema_version() returns int language sql immutable as $$ select 3 $$;
 
 -- Host: live counter and per-choice tally while a question is open.
 create or replace function host_stats(p_game uuid, p_token uuid, p_idx int)

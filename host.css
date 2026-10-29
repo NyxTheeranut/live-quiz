@@ -78,7 +78,7 @@ dialog::backdrop { background: rgba(8, 12, 22, .72); backdrop-filter: blur(4px);
 .dlg { padding: 24px; }
 
 /* ================= Game ================= */
-.mute { position: fixed; right: 14px; bottom: 14px; z-index: 60; width: 52px; height: 52px; background: var(--surface); border: 2px solid var(--edge); }
+.mute { position: fixed; right: 10px; bottom: 10px; z-index: 60; width: 44px; height: 44px; background: var(--surface); border: 2px solid var(--edge); }
 .tbar { position: fixed; top: 0; left: 0; right: 0; height: 12px; z-index: 50; background: rgba(255, 255, 255, .08); }
 .tbar i { display: block; height: 100%; background: var(--c4); transform-origin: left; animation: drain var(--dur, 60s) linear forwards; }
 .tbar.low i { background: var(--c1); }
@@ -118,17 +118,17 @@ dialog::backdrop { background: rgba(8, 12, 22, .72); backdrop-filter: blur(4px);
 
 /* live chart: rows are absolutely placed so they slide when ranks change */
 .chart { position: relative; margin-top: 18px; }
-.crow { position: absolute; left: 0; right: 0; top: 0; height: 76px; padding-top: 6px; transition: transform .7s var(--spring), opacity .3s; }
+.crow { position: absolute; left: 0; right: 0; top: 0; height: var(--row, 76px); padding-top: calc(6px * var(--k, 1)); transition: transform .7s var(--spring), opacity .3s; }
 .crow.off { opacity: 0; pointer-events: none; }
 .crow .top { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.crow .rk { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--surface-2); font: 800 1.15rem var(--font-display); font-variant-numeric: tabular-nums; }
+.crow .rk { flex: none; display: grid; place-items: center; width: calc(40px * var(--k, 1)); height: calc(40px * var(--k, 1)); border-radius: 50%; background: var(--surface-2); font: 800 calc(1.15rem * var(--k, 1)) var(--font-display); font-variant-numeric: tabular-nums; }
 .crow.lead .rk { background: var(--tint); color: var(--on-c); }
-.crow .nm { flex: 1; min-width: 0; font: 700 1.6rem var(--font-display); overflow-wrap: anywhere; }
-.crow .gp { color: var(--muted); font-size: 1rem; }
-.crow .ct { min-width: 2.2ch; text-align: right; font: 800 2rem var(--font-display); font-variant-numeric: tabular-nums; }
-.crow .bar { height: 14px; margin: 6px 0 0 54px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.crow .nm { flex: 1; min-width: 0; font: 700 calc(1.6rem * var(--k, 1)) var(--font-display); overflow-wrap: anywhere; }
+.crow .gp { color: var(--muted); font-size: calc(1rem * var(--k, 1)); }
+.crow .ct { min-width: 2.2ch; text-align: right; font: 800 calc(2rem * var(--k, 1)) var(--font-display); font-variant-numeric: tabular-nums; }
+.crow .bar { height: calc(14px * var(--k, 1)); margin: calc(6px * var(--k, 1)) 0 0 calc(54px * var(--k, 1)); border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
 .crow .bar i { display: block; height: 100%; background: var(--tint); border-radius: var(--r-pill); transform-origin: left; transform: scaleX(0); transition: transform .7s var(--spring); }
-.crow .lead-ico { display: none; color: var(--c3); font-size: 1.6rem; }
+.crow .lead-ico { display: none; color: var(--c3); font-size: calc(1.6rem * var(--k, 1)); }
 .crow.lead .lead-ico { display: inline; animation: bob 1.6s ease-in-out infinite; }
 .empty { padding: 56px 0; text-align: center; color: var(--muted); font-size: 1.5rem; }
 .empty i { display: block; font-size: 3rem; margin-bottom: 8px; color: var(--c3); }
@@ -302,3 +302,86 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .livearea.allin > :not(.allstage) { opacity: .16; filter: blur(3px); pointer-events: none; transition: opacity .4s var(--ease); }
 .all-title { font: 800 clamp(2.2rem, 6vw, 4.6rem)/1.15 var(--font-display); animation: pop .5s var(--spring) both; text-shadow: 0 2px 24px rgba(0, 0, 0, .5); }
 .livearea.allin .fog-center { display: none; }   /* the centred block replaces the fog text */
+
+/* ================= Voting screen fits one screen (no scrolling for the host) ================= */
+@media (min-width: 900px) and (min-height: 540px) {
+  body.lockq { overflow: hidden; }
+  #h-q.qscreen { height: 100dvh; display: flex; flex-direction: column; padding-top: 14px; padding-bottom: 14px; }
+  #h-q .qtop .timer { font-size: clamp(2rem, 6.5vh, 3.2rem); }
+  #h-q .qtitle { font-size: clamp(1.8rem, min(4.4vw, 7vh), 3.6rem); margin: 6px 0 2px; }
+  #h-q.qscreen .award-note { font-size: clamp(1rem, 2.5vh, 1.3rem); }
+  #h-q .progress { height: 8px; margin: 8px 0 10px; }
+  #voteLive, #quizLive { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #h-q .tools { flex: none; }
+  #h-q .livearea { flex: 1; min-height: 0; overflow: hidden; }
+  #h-q .livearea.allin { min-height: 0; }
+  #h-q .livearea .chart { margin-top: 8px; }
+  #h-q .livearea .cloud { height: 100%; margin-top: 0; }
+  #h-q .livearea .cloud.empty { height: 0; }
+  #h-q .livearea .fog { height: 100%; margin-top: 0; }
+  #h-q .livearea .fog .fogcloud { height: 100%; }
+  #h-q .empty { padding: 3vh 0; font-size: clamp(1.1rem, 3vh, 1.5rem); }
+  #h-q .empty i { font-size: clamp(1.8rem, 5vh, 3rem); margin-bottom: 4px; }
+  #quizLive .tiles { flex: 1; min-height: 0; grid-auto-rows: 1fr; gap: clamp(8px, 1.6vh, 16px); margin-top: 6px; }
+  #quizLive .tile, #quizLive .tiles.many .tile { min-height: 0; padding-top: 6px; padding-bottom: 6px; font-size: clamp(1.1rem, min(2.6vw, 4.2vh), 2rem); }
+  #quizLive .row { flex: none; margin-top: 8px; }
+  .all-title { font-size: clamp(2rem, min(6vw, 9vh), 4.6rem); }
+  #h-q .crow .top { padding-right: 18px; }          /* keeps the vote counts clear of the mute button */
+}
+
+/* ================= Studio: quick actions, bulk paste, emoji picker above the next card ================= */
+.studiotop { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.quickacts { display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 2px; }
+.acard.raised, .acard:has(.emo[open]) { z-index: 40; }
+#bulkDlg { width: min(780px, calc(100vw - 32px)); background: var(--surface); }
+#bulkText { min-height: 280px; font: 400 1rem/1.6 var(--font-body); }
+.bulkprev { margin: 10px 0 0; min-height: 1.6em; color: var(--c4); font-weight: 700; }
+.bulkex { margin-top: 8px; }
+.bulkex summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; color: var(--muted); font-weight: 600; }
+.bulkex pre { white-space: pre-wrap; margin: 6px 0 0; padding: 14px; border-radius: 12px; background: var(--surface-2); font: 400 .92rem/1.6 var(--font-body); color: var(--text); }
+
+/* ================= Quiz leaderboard: horizontal bars that slide to their new rank ================= */
+.boardscreen { max-width: 1100px; margin: 0 auto; padding: 16px 24px 96px; display: flex; flex-direction: column; min-height: 100dvh; }
+@media (min-width: 900px) and (min-height: 540px) { #h-board.boardscreen { height: 100dvh; } }
+.board-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.board-head h2 { margin: 0; font-size: clamp(1.6rem, 4.6vh, 2.8rem); }
+.boardarea { flex: 1; min-height: 480px; position: relative; margin-top: 10px; }
+@media (min-width: 900px) and (min-height: 540px) { .boardarea { min-height: 0; } }
+.boardrows { position: relative; }
+.boardnote { margin: 0; color: var(--muted); font-size: clamp(.85rem, 2.2vh, 1.05rem); min-height: 1.2em; }
+.brow { position: absolute; left: 0; right: 0; top: 0; height: var(--brow, 70px); display: flex; align-items: center; gap: calc(14px * var(--bk, 1)); transition: transform .95s var(--ease), opacity .5s; will-change: transform; }
+.brow.out { opacity: 0; pointer-events: none; }
+.brk { flex: none; display: grid; place-items: center; width: calc(50px * var(--bk, 1)); height: calc(50px * var(--bk, 1)); border-radius: 50%; background: var(--surface-2); font: 800 calc(1.35rem * var(--bk, 1)) var(--font-display); font-variant-numeric: tabular-nums; transition: background .3s, color .3s; }
+.brow.lead .brk { background: var(--c3); color: var(--on-c); }
+.bmid { flex: 1; min-width: 0; }
+.btop { display: flex; align-items: baseline; gap: calc(12px * var(--bk, 1)); min-width: 0; }
+.bname { font: 700 calc(1.55rem * var(--bk, 1)) var(--font-display); overflow-wrap: anywhere; min-width: 0; }
+.bgain { flex: none; font: 800 calc(1.05rem * var(--bk, 1)) var(--font-display); color: var(--c4); opacity: 0; transform: translateY(6px); transition: opacity .4s, transform .5s var(--spring); }
+.bgain.show { opacity: 1; transform: none; }
+.bbar { height: calc(16px * var(--bk, 1)); margin-top: calc(5px * var(--bk, 1)); border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.bbar i { display: block; height: 100%; background: var(--tint); border-radius: var(--r-pill); transform-origin: left; transform: scaleX(0); transition: transform 1.1s var(--ease); }
+.bscore { flex: none; min-width: 4.4ch; text-align: right; font: 800 calc(1.75rem * var(--bk, 1)) var(--font-display); font-variant-numeric: tabular-nums; }
+.bmove { flex: none; min-width: calc(112px * var(--bk, 1)); display: flex; align-items: center; justify-content: flex-end; gap: 6px; font: 800 calc(1.15rem * var(--bk, 1)) var(--font-display); opacity: 0; transform: scale(.6); transition: opacity .3s, transform .5s var(--spring); }
+.bmove.show { opacity: 1; transform: none; }
+.bmove i { font-size: 1.2em; }
+.bmove.up { color: var(--c4); } .bmove.down { color: var(--c1); } .bmove.same { color: var(--muted); }
+.bmove small { display: block; color: var(--muted); font: 600 calc(.82rem * var(--bk, 1)) var(--font-body); line-height: 1.1; }
+@media (max-width: 700px) { .bmove small { display: none; } .bmove { min-width: 60px; } }
+
+/* ================= Final results: top 3 podium, then 4 to 10 as bars ================= */
+.endscreen.quizfinal { height: 100dvh; display: flex; flex-direction: column; padding-top: 14px; padding-bottom: 12px; }
+.endscreen.quizfinal h1 { flex: none; font-size: clamp(1.8rem, 5.2vh, 3.2rem); margin: 0 0 2px; }
+.finalquiz { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.finalquiz .pod { flex: none; width: 100%; max-width: 760px; margin: 4px auto 0; }
+.finalquiz .step .who { font-size: clamp(1.05rem, 3vh, 1.5rem); padding-bottom: 4px; }
+.finalquiz .step .block { font-size: clamp(1.6rem, 5vh, 2.6rem); padding-top: 6px; }
+.finalrows { flex: 1; min-height: 0; width: 100%; max-width: 860px; margin: 8px auto 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; text-align: left; }
+.frow { flex: 1 1 0; min-height: 30px; max-height: 54px; display: flex; align-items: center; gap: 14px; animation: rise .5s var(--ease) both; animation-delay: calc(var(--i) * 110ms + .9s); }
+.frow .fr { flex: none; display: grid; place-items: center; width: clamp(28px, 4.6vh, 40px); height: clamp(28px, 4.6vh, 40px); border-radius: 50%; background: var(--surface-2); font: 800 clamp(.9rem, 2.4vh, 1.2rem) var(--font-display); }
+.frow .fn { flex: 0 0 clamp(120px, 22%, 220px); min-width: 0; font: 700 clamp(1rem, 2.8vh, 1.4rem) var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frow .fbar { flex: 1; height: clamp(10px, 2.2vh, 18px); border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+.frow .fbar i { display: block; height: 100%; width: 100%; background: var(--tint); border-radius: var(--r-pill); transform-origin: left; animation: growx 1s var(--ease) both; animation-delay: calc(var(--i) * 110ms + 1s); }
+.frow .fs { flex: none; min-width: 4.4ch; text-align: right; font: 800 clamp(1rem, 2.8vh, 1.4rem) var(--font-display); font-variant-numeric: tabular-nums; }
+@keyframes growx { from { transform: scaleX(0); } to { transform: scaleX(var(--w, 1)); } }
+.endscreen.quizfinal .row { flex: none; margin-top: 8px; }
+.endscreen.quizfinal .hint { flex: none; margin: 6px 0 0; font-size: .8rem; }

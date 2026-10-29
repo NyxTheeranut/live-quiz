@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029112233">
+<link rel="stylesheet" href="theme.css?v=20261029122354">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029112233"></script>
+<script src="config.js?v=20261029122354"></script>
 <style>
   main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
   section { flex: 1; display: flex; flex-direction: column; }
@@ -164,8 +164,7 @@
       </div>
       <p id="liveEmpty" class="muted">รอผลจากหน้าจอใหญ่...</p>
     </div>
-    <button class="btn ghost block" id="changeBtn"><i class="ph-bold ph-arrow-counter-clockwise" aria-hidden="true"></i>เปลี่ยนใจ</button>
-    <p id="votedMsg" class="muted center-text" role="status"></p>
+    <p id="votedMsg" class="muted center-text" role="status">โหวตแล้ว เปลี่ยนไม่ได้ รอประกาศผลนะ</p>
   </section>
 
   <section id="s-vresult" class="hide center stack">
@@ -225,7 +224,11 @@ let me = null;          // { player_id, game_id, pin, nick }
 let chan = null, pollT = null, finished = false;
 let cur = null;         // คำถามที่เปิดอยู่ (ข้อความล่าสุดจากโฮสต์)
 let tick = null, answeredIdx = -1, sel = [], lastTally = null, timeUp = false;
-const myVote = {};      // idx -> รายการตัวเลือกที่โหวตไว้ (หลายคนได้ถ้าผู้จัดตั้งไว้)
+const myVote = {};
+// จำโหวตไว้ในเครื่อง รีเฟรชหน้าแล้วจะไม่เห็นหน้าโหวตซ้ำ (และเซิร์ฟเวอร์ก็ไม่ให้โหวตซ้ำอยู่แล้ว)
+const votesKey = () => 'quiz-votes-' + me.player_id;          // ต่อผู้เล่นหนึ่งคน (แท็บหรือเครื่องเดียวกันหลายคนจะไม่ปนกัน)
+const saveVotes = () => { try { localStorage.setItem(votesKey(), JSON.stringify(myVote)); } catch (e) {} };
+const loadVotes = () => { try { Object.assign(myVote, JSON.parse(localStorage.getItem(votesKey()) || '{}')); } catch (e) {} };      // idx -> รายการตัวเลือกที่โหวตไว้ (หลายคนได้ถ้าผู้จัดตั้งไว้)
 
 // ---------- เข้าร่วม ----------
 try {
@@ -278,6 +281,7 @@ $('nickForm').addEventListener('submit', async e => {
 })();
 
 function start() {
+  loadVotes();
   $('hello').textContent = 'สวัสดี ' + me.nick;
   $('waitMsg').textContent = 'เข้าห้องแล้ว รอพิธีกรเริ่มเกมได้เลย ดูที่หน้าจอใหญ่';
   finished = false;
@@ -400,10 +404,10 @@ function openVote(m) {
   $('vmax').textContent = 'เลือกได้ ' + mx + ' คน'; $('vmax').classList.toggle('hide', mx < 2);
   buildList(m);
   syncDock();
-  const finished = () => { $('voteBtn').disabled = true; $('voteBtn').textContent = 'หมดเวลาโหวตแล้ว'; $('changeBtn').classList.add('hide'); $('votedMsg').textContent = 'หมดเวลาแล้ว รอประกาศผลที่หน้าจอใหญ่'; };
+  const finished = () => { $('voteBtn').disabled = true; $('voteBtn').textContent = 'หมดเวลาโหวตแล้ว'; $('votedMsg').textContent = 'หมดเวลาแล้ว รอประกาศผลที่หน้าจอใหญ่'; };
   startTimer(m.duration, ['vtimer', 'dtimer'], finished);
   $('dnum').textContent = $('vnum').textContent;
-  $('changeBtn').classList.remove('hide'); $('votedMsg').textContent = '';
+  $('votedMsg').textContent = 'โหวตแล้ว เปลี่ยนไม่ได้ รอประกาศผลนะ';
   if (myVote[m.idx]) showVoted(); else show('s-vote');
 }
 
@@ -477,25 +481,29 @@ $('closeAll').onclick = () => $('vlist').querySelectorAll('details').forEach(d =
 
 $('voteBtn').onclick = async () => {
   if (!sel.length || !cur) return;
+  const names = sel.map(k => cur.choices[k]).join(' และ ');
+  // โหวตได้ครั้งเดียว เปลี่ยนไม่ได้: ถามย้ำก่อนส่ง
+  if (!(await UI.confirm(`โหวตให้ ${names}? โหวตแล้วเปลี่ยนไม่ได้นะ`, 'ยืนยันโหวต'))) return;
   $('voteBtn').disabled = true; $('vErr').textContent = '';
   const idx = cur.idx, picks = [...sel], mx = cur.maxVotes || 1;
   // โหวตคนเดียวใช้ฟังก์ชันเดิม (ใช้ได้แม้ฐานข้อมูลยังไม่ได้อัปเดต) หลายคนใช้ submit_votes
   const { error } = mx === 1
     ? await db.rpc('submit_answer', { p_player: me.player_id, p_idx: idx, p_choice: picks[0] })
     : await db.rpc('submit_votes', { p_player: me.player_id, p_idx: idx, p_choices: picks });
+  if (error && /ไปแล้ว/.test(error.message)) { myVote[idx] = myVote[idx] || []; saveVotes(); return showVoted(); }   // เคยโหวตไปแล้ว (เช่น รีเฟรชหน้า)
   if (error) { $('vErr').textContent = error.message; $('voteBtn').disabled = false; return; }
-  myVote[idx] = picks;
+  myVote[idx] = picks; saveVotes();
   showVoted();
 };
 
 function showVoted() {
   $('votedName').innerHTML = '';
+  if (!myVote[cur.idx].length) $('votedName').textContent = 'โหวตเรียบร้อยแล้ว';
   myVote[cur.idx].forEach(k => { const d = document.createElement('div'); d.textContent = cur.choices[k]; $('votedName').appendChild(d); });
   $('votedName').classList.toggle('many', myVote[cur.idx].length > 1);
   paintLive();
   show('s-voted');
 }
-$('changeBtn').onclick = () => { sel = [...(myVote[cur.idx] || sel)]; buildList(cur); syncDock(); show('s-vote'); };
 
 function onTally(m) {
   if (!cur || cur.idx !== m.idx) return;
@@ -582,7 +590,7 @@ function onEnded(m) {
   show('s-end');
 }
 </script>
-<script src="ui.js?v=20261029112233"></script>
-<script src="fx.js?v=20261029112233"></script>
+<script src="ui.js?v=20261029122354"></script>
+<script src="fx.js?v=20261029122354"></script>
 </body>
 </html>

@@ -1,12 +1,13 @@
 // Host game engine. Uses $, esc, LETTERS, SHAPES from studio.js (loaded first).
 const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const SCREENS = ['h-setup', 'h-lobby', 'h-pre', 'h-q', 'h-reveal', 'h-end'];
+const SCREENS = ['h-setup', 'h-lobby', 'h-pre', 'h-q', 'h-reveal', 'h-board', 'h-end'];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
-  if (id !== 'h-reveal') { setNext(null, false); tapResolve = null; }
+  document.body.classList.toggle('lockq', id === 'h-q' || id === 'h-board');
+  if (id !== 'h-reveal' && id !== 'h-board') { setNext(null, false); tapResolve = null; nextAction = null; }
   if (id !== 'h-q') leaveFog();            // เปิดกราฟจริงคืนก็ต่อเมื่อออกจากหน้าโหวตไปแล้วเท่านั้น
   $('tbar').classList.add('hide');
   window.scrollTo(0, 0);
@@ -205,6 +206,7 @@ async function askQuestion(i) {
       ? `<div class="tile tint${k + 1}" style="animation-delay:${k * 80}ms"><i class="ph-fill ph-${SHAPES[k]} sh" aria-hidden="true"></i><span>${esc(c)}</span></div>` : '').join('');
   }
   show('h-q');
+  if (vote) { fitRows(); paintVote(lastDist, lastAnswered); }
   Sound.music(musicOn(), .24);
   if (vote && cfg().hideAt === '0') cfg().fogKind === 'censor' ? enterCensor() : enterFog();
 
@@ -381,7 +383,14 @@ function leaveFog() {
 }
 
 // ---------- กราฟคะแนนสด (แถวเลื่อนขึ้นลงตามอันดับ) ----------
-const ROW = 76, TOPK = 6;
+let ROW = 76;
+const TOPK = 6;
+// ปรับความสูงแต่ละแถวให้พอดีกับพื้นที่ที่เหลือบนจอ (ตัวหนังสือในแถวย่อตามด้วย)
+function fitRows() {
+  const H = $('liveArea').clientHeight;
+  ROW = H > 0 ? Math.max(46, Math.min(76, Math.floor((H - 12) / TOPK))) : 76;
+  $('h-q').style.setProperty('--row', ROW + 'px'); $('h-q').style.setProperty('--k', (ROW / 76).toFixed(3));
+}
 const rows = new Map();
 function resetChart() { rows.clear(); $('chart').innerHTML = ''; cloudWords.clear(); $('cloud').innerHTML = ''; }
 // แสดงเฉพาะมุมมองที่เลือก (แท่งหรือกลุ่มคำ) และซ่อนทั้งหมดตอนมีหมอก
@@ -392,7 +401,12 @@ function showLive() {
   $('viewSeg').classList.toggle('hide', fogged);
 }
 document.querySelectorAll('input[name=view]').forEach(r => r.onchange = () => { view = r.value; resetChart(); paintVote(lastDist, lastAnswered); });
-window.addEventListener('resize', () => { if (G && G.kind === 'vote' && !$('h-q').classList.contains('hide')) fogged ? fogCloudLayout() : paintVote(lastDist, lastAnswered); });
+window.addEventListener('resize', () => {
+  if (!G || G.kind !== 'vote' || $('h-q').classList.contains('hide')) return;
+  fitRows();
+  if (fogged) { FOG.style === 'cloud' ? fogCloudLayout() : (fogLayout(), $('fogChart').style.height = FOG.rows.length * ROW + 'px'); }
+  else paintVote(lastDist, lastAnswered);
+});
 
 // ---------- กลุ่มคำ: วางคำแบบเกลียว ขนาดตามคะแนน แล้วให้ลอยไปที่ใหม่เมื่อคะแนนเปลี่ยน ----------
 const cloudWords = new Map();
@@ -492,13 +506,13 @@ function paintVote(dist, answered) {
 
 // ---------- 4. ประกาศผล ----------
 // แท่นรับรางวัล: items เรียงจากที่ 1 ลงไป แสดงเป็น ที่ 2, ที่ 1, ที่ 3
-function renderPodium(el, items) {
+function renderPodium(el, items, maxH = 230) {
   const top = items.slice(0, 3), max = Math.max(1, top[0] ? top[0].n : 1);
   const order = [top[1], top[0], top[2]].filter(Boolean);
   const rankOf = it => top.indexOf(it) + 1;
   el.style.setProperty('--cols', order.length);
   el.innerHTML = order.map(it => {
-    const r = rankOf(it), h = Math.max(80, Math.round(it.n / max * 230));
+    const r = rankOf(it), h = Math.max(Math.round(maxH * .35), Math.round(it.n / max * maxH));
     const tint = r === 1 ? 3 : r === 2 ? 2 : 4, dl = r === 3 ? 0 : r === 2 ? .35 : .75;
     return `<div class="step tint${tint}"><div class="who" style="--dl:${dl}s">${esc(it.label)}<small>${esc(it.sub || '')}</small></div><div class="block" style="--h:${h}px;--dl:${dl}s">${r}</div></div>`;
   }).join('');
@@ -526,16 +540,97 @@ async function reveal() {
   const { data, error } = await host('host_reveal', { p_idx: i });
   if (error) { revealing = false; return UI.toast(error.message); }
   const board = data.board.map(r => [r.nickname, r.score, r.last]);
+  lastBoard = board;
   await send({ type: 'reveal', kind: 'quiz', idx: i, correct: data.correct, board });
-  const total = Object.values(data.dist).reduce((a, b) => a + b, 0) || 1;
+  const answeredN = Object.values(data.dist).reduce((a, b) => a + b, 0);
   $('voteResult').classList.add('hide'); $('quizResult').classList.remove('hide');
   $('bars').innerHTML = q.choices.map((c, k) => !c ? '' : `
     <div class="qb tint${k + 1} ${k === data.correct ? '' : 'wrong'}"><i class="ph-fill ph-${SHAPES[k]}" aria-hidden="true"></i>
       <span>${esc(c)}</span><b>${data.dist[k] || 0}${k === data.correct ? ' (ถูก)' : ''}</b></div>`).join('');
-  renderPodium($('qpod'), board.filter(r => r[1] > 0).map(r => ({ label: r[0], sub: r[1] + ' คะแนน', n: r[1] })));
-  setNext('แตะที่หน้าจอเพื่อ' + (last ? 'ดูผลรวม' : 'ไปข้อถัดไป'), true, 900);
   show('h-reveal');
-  sfx.crash(); sfx.win(); confetti();
+  sfx.pop(); if ((data.dist[data.correct] || 0) > 0) sfx.win();
+  nextAction = showBoard;                                          // ดูเฉลยก่อน แตะหนึ่งครั้งค่อยไปดูอันดับ
+  setNext('แตะที่หน้าจอเพื่อดูอันดับ', true, 900);
+}
+
+// ---------- อันดับหลังแต่ละข้อ (ควิซ) ----------
+// แท่งแนวนอนเริ่มที่อันดับเดิม แล้วเลื่อนขึ้นลงไปอันดับใหม่ พร้อมป้ายบอกว่าขยับจากที่เท่าไหร่ไปที่เท่าไหร่
+const BOARD_N = 10;
+let BROW = 70, lastBoard = null, boardState = null;
+const tintOf = name => { let h = 0; for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0; return h % 8 + 1; };
+const fmtN = n => Number(n).toLocaleString('en-US');
+function countUp(el, from, to, ms) {
+  if (reduceMotion || from === to) { el.textContent = fmtN(to); return; }
+  const t0 = performance.now();
+  (function f(t) { const p = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - p, 3); el.textContent = fmtN(Math.round(from + (to - from) * e)); if (p < 1) requestAnimationFrame(f); })(t0);
+}
+// ปรับความสูงแถวใหม่เมื่อหน้าต่างเปลี่ยนขนาด (เช่น เข้าโหมดเต็มจอ) แล้ววางแถวไว้ที่เดิม
+window.addEventListener('resize', () => {
+  if (!boardState || $('h-board').classList.contains('hide')) return;
+  fitBoard(boardState.n); $('boardRows').style.height = boardState.n * BROW + 'px';
+  boardState.els.forEach(o => { o.el.style.transform = `translateY(${o.slot * BROW}px)`; });
+});
+function fitBoard(n) {
+  const H = $('boardArea').clientHeight || 600;
+  BROW = Math.max(36, Math.min(80, Math.floor(H / Math.max(n, 1))));
+  $('h-board').style.setProperty('--brow', BROW + 'px'); $('h-board').style.setProperty('--bk', (BROW / 78).toFixed(3));
+}
+async function showBoard() {
+  const last = G.qi + 1 >= G.questions.length;
+  const now = lastBoard.map((r, i) => ({ name: r[0], score: r[1], gain: r[2], rank: i + 1 }));
+  now.forEach(r => { r.ps = r.score - r.gain; });
+  const order = [...now].sort((a, b) => b.ps - a.ps || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  order.forEach((r, i) => { r.prank = i + 1; });
+  const n = Math.min(BOARD_N, now.length), max = Math.max(1, ...now.map(r => r.score));
+  const rows = now.filter(r => r.rank <= BOARD_N || r.prank <= BOARD_N);
+  const slot = rank => rank <= BOARD_N ? rank - 1 : n;               // นอกอันดับ 10 = อยู่ใต้สุด ซ่อนไว้
+
+  $('boardTitle').textContent = 'อันดับ';
+  $('boardChip').textContent = `หลังข้อที่ ${G.qi + 1} จาก ${G.questions.length}`;
+  $('boardNote').textContent = now.length > BOARD_N ? `แสดง ${BOARD_N} อันดับแรก จากผู้เล่น ${now.length} คน` : '';
+  $('boardRows').innerHTML = '';
+  show('h-board'); fitBoard(n);
+  $('boardRows').style.height = n * BROW + 'px';
+  const els = rows.map(r => {
+    const el = document.createElement('div');
+    el.className = 'brow tint' + tintOf(r.name); el.setAttribute('role', 'listitem');
+    el.innerHTML = '<span class="brk"></span><div class="bmid"><div class="btop"><span class="bname"></span><span class="bgain"></span></div><div class="bbar"><i></i></div></div><b class="bscore num"></b><span class="bmove"></span>';
+    el.querySelector('.bname').textContent = r.name;
+    el.querySelector('.brk').textContent = r.prank;
+    el.querySelector('.bscore').textContent = fmtN(r.ps);
+    el.querySelector('.bbar i').style.transform = `scaleX(${(r.ps / max).toFixed(3)})`;
+    el.classList.toggle('out', r.prank > BOARD_N); el.classList.toggle('lead', r.prank === 1);
+    el.style.transform = `translateY(${slot(r.prank) * BROW}px)`;
+    $('boardRows').appendChild(el);
+    return { r, el, slot: slot(r.prank) };
+  });
+  boardState = { n, els };
+  await wait(reduceMotion ? 50 : 900);                               // ให้เห็นอันดับเดิมก่อน
+  sfx.go();
+  els.forEach(o => {                                                 // แล้วเลื่อนไปอันดับใหม่
+    const { r, el } = o; o.slot = slot(r.rank);
+    el.style.transform = `translateY(${o.slot * BROW}px)`;
+    el.classList.toggle('out', r.rank > BOARD_N); el.classList.toggle('lead', r.rank === 1);
+    el.querySelector('.bbar i').style.transform = `scaleX(${(r.score / max).toFixed(3)})`;
+    el.querySelector('.brk').textContent = r.rank;
+    countUp(el.querySelector('.bscore'), r.ps, r.score, 1000);
+  });
+  await wait(reduceMotion ? 50 : 1150);
+  let big = 0;
+  els.forEach(({ r, el }, k) => {
+    const g = el.querySelector('.bgain'), m = el.querySelector('.bmove'), d = r.prank - r.rank;
+    if (r.gain > 0) { g.textContent = `+${fmtN(r.gain)}`; setTimeout(() => g.classList.add('show'), k * 60); }
+    m.className = 'bmove ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'same');
+    m.innerHTML = d > 0 ? `<i class="ph-bold ph-arrow-up" aria-hidden="true"></i><div><b>${d}</b><small>จากที่ ${r.prank}</small></div>`
+      : d < 0 ? `<i class="ph-bold ph-arrow-down" aria-hidden="true"></i><div><b>${-d}</b><small>จากที่ ${r.prank}</small></div>`
+      : `<i class="ph-bold ph-minus" aria-hidden="true"></i>`;
+    el.setAttribute('aria-label', `${r.name} อันดับ ${r.rank} ${fmtN(r.score)} คะแนน` + (d > 0 ? ` ขึ้น ${d} อันดับ จากที่ ${r.prank}` : d < 0 ? ` ลง ${-d} อันดับ จากที่ ${r.prank}` : ''));
+    if (r.rank <= BOARD_N || r.prank <= BOARD_N) setTimeout(() => m.classList.add('show'), 150 + k * 60);
+    big = Math.max(big, d);
+  });
+  if (big >= 2) sfx.pop();
+  nextAction = () => last ? finish() : intro(G.qi + 1);
+  setNext('แตะที่หน้าจอเพื่อ' + (last ? 'ดูผลสุดท้าย' : 'ไปข้อถัดไป'), true, 900);
 }
 
 async function revealVote(i, q, last) {
@@ -604,12 +699,13 @@ function setNext(label, on, delay = 0) {
   setNext.t = setTimeout(() => { b.disabled = false; b.classList.remove('hide'); b.focus({ preventScroll: true }); }, delay);
 }
 // รอให้ผู้จัดแตะหน้าจอ (ใช้กับแต่ละขั้นของพิธีรับรางวัล)
-let tapResolve = null;
+let tapResolve = null, nextAction = null;
 function waitTap(label) { return new Promise(res => { tapResolve = res; setNext(label, true, 700); }); }
 $('nextBtn').onclick = () => {
   if ($('nextBtn').disabled) return;
   if (tapResolve) { const r = tapResolve; tapResolve = null; setNext(null, false); return r(); }   // ขั้นของพิธี: แตะเพื่อเปิดต่อ
-  G.qi + 1 < G.questions.length ? intro(G.qi + 1) : finish();                                    // จบแล้ว: แตะเพื่อไปรางวัลถัดไป
+  if (nextAction) { const a = nextAction; nextAction = null; setNext(null, false); return a(); }  // ควิซ: เฉลย แล้วอันดับ แล้วข้อถัดไป
+  G.qi + 1 < G.questions.length ? intro(G.qi + 1) : finish();                                    // โหวต: แตะเพื่อไปรางวัลถัดไป
 };
 document.addEventListener('keydown', e => {            // ลูกศรขวาไปต่อได้ด้วย (Space และ Enter ทำงานกับปุ่มที่โฟกัสอยู่แล้ว)
   const b = $('nextBtn');
@@ -636,13 +732,16 @@ async function finish() {
     const board = data.board.map(r => [r.nickname, r.score, r.last]);
     await send({ type: 'ended', kind: 'quiz', board });
     $('endTitle').textContent = 'ผลสุดท้าย';
-    $('podium').innerHTML = board.slice(0, 10).map((r, i) =>
-      `<li class="tint${i % 4 + 1}" style="--i:${i}"><div class="aw">อันดับ ${i + 1}</div><div class="wn">${esc(r[0])}</div><div class="vt">${r[1]} คะแนน</div></li>`).join('');
+    $('podium').classList.add('hide'); $('finalQuiz').classList.remove('hide'); $('h-end').classList.add('quizfinal');
+    renderPodium($('finalPod'), board.filter(r => r[1] > 0).map(r => ({ label: r[0], sub: fmtN(r[1]) + ' คะแนน', n: r[1] })), Math.max(110, Math.min(220, Math.round(innerHeight * .22))));
+    const rest = board.slice(3, 10), top = Math.max(1, board[0] ? board[0][1] : 1);
+    $('finalRows').innerHTML = rest.map((r, k) => `<div class="frow tint${tintOf(r[0])}" style="--i:${k};--w:${(r[1] / top).toFixed(3)}" role="listitem"><span class="fr">${k + 4}</span><span class="fn">${esc(r[0])}</span><div class="fbar"><i></i></div><b class="fs">${fmtN(r[1])}</b></div>`).join('');
   }
   $('endPin').textContent = G.pin;
   $('endToken').textContent = G.host_token;
   show('h-end');
-  sfx.win(); confetti();
+  if (G.kind === 'quiz') document.body.classList.add('lockq');
+  sfx.crash(); sfx.win(); confetti();
 }
 
 $('csvBtn').onclick = async () => {

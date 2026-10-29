@@ -420,5 +420,185 @@ function build() {
   return { kind: 'quiz', title, questions: out, settings: { ...S.settings } };
 }
 
+// ---------- วางทั้งหมดทีเดียว: วางหรือพิมพ์เป็นข้อความธรรมดา ระบบแยกให้เองว่าอันไหนรางวัล ผู้เข้าชิง หรือคำถาม ----------
+const HDR = {
+  awards: /^(?:#+\s*)?(?:รางวัล|awards?)\s*[:：]?$/i,
+  nominees: /^(?:#+\s*)?(?:ผู้เข้าชิง|รายชื่อ|nominees?|names?)\s*[:：]?$/i,
+  quiz: /^(?:#+\s*)?(?:ควิซ|คำถาม|quiz|questions?)\s*[:：]?$/i
+};
+const stripNo = x => x.replace(/^\d+[.)]\s*/, '');
+const splitNames = x => x.split(/[,、\t]/).map(n => stripNo(n.trim()).slice(0, 40)).filter(Boolean);
+
+function parseAwardLine(raw) {
+  const l = stripNo(raw.trim());
+  let f;
+  if (l.includes('|')) f = l.split('|');
+  else if (l.includes('\t')) f = l.split('\t');
+  else { const i = l.indexOf(' - '); f = i > 0 ? [l.slice(0, i), l.slice(i + 3)] : [l]; }
+  f = f.map(x => x.trim());
+  return { title: f[0].slice(0, 60), note: (f[1] || '').slice(0, 90), sec: clamp(f[2], 90), max: clampMax(f[3]) };
+}
+function bulkParseVote(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim());
+  const awards = [], groups = new Map(), seen = new Set();
+  const hasHeader = lines.some(l => HDR.awards.test(l) || HDR.nominees.test(l));
+  let mode = hasHeader ? null : (lines.some(l => /[|\t]| - /.test(l)) ? 'awards' : 'nominees'), cur = '';
+  const add = (g, names) => names.forEach(n => {
+    if (seen.has(n.toLowerCase())) return; seen.add(n.toLowerCase());
+    if (!groups.has(g)) groups.set(g, []); groups.get(g).push(n);
+  });
+  for (const l of lines) {
+    if (!l) continue;
+    if (HDR.awards.test(l)) { mode = 'awards'; continue; }
+    if (HDR.nominees.test(l)) { mode = 'nominees'; cur = ''; continue; }
+    if (HDR.quiz.test(l)) { mode = 'skip'; continue; }
+    if (mode === 'awards') { const a = parseAwardLine(l); if (a.title) awards.push(a); }
+    else if (mode === 'nominees') {
+      const c = l.search(/[:：]/);
+      if (c > 0) {                                                  // ทีมขาย: ก้อง, มิ้นท์   หรือ  ทีมขาย:  (แล้วตามด้วยชื่อทีละบรรทัด)
+        const g = l.slice(0, c).trim().slice(0, 30), rest = l.slice(c + 1).trim();
+        if (rest) add(g, splitNames(rest)); else cur = g;
+      } else if (l.includes('\t')) { const p = l.split('\t'); add((p[1] || '').trim().slice(0, 30), splitNames(p[0])); }   // ชื่อ <แท็บ> กลุ่ม (คัดลอกจากชีต)
+      else add(cur, splitNames(l));
+    }
+  }
+  return { awards, groups: [...groups].map(([name, names]) => ({ name, names })) };
+}
+
+function quizBlock(b) {
+  let sec = 20; const rest = [];
+  for (const l of b) {
+    const m = l.match(/^(?:เวลา|time)\s*[:：]?\s*(\d+)/i) || l.match(/^\[?\s*(\d+)\s*(?:วินาที|วิ|s)\s*\]?$/i);
+    if (m) { sec = clamp(m[1], 20); continue; }
+    rest.push(l);
+  }
+  if (rest.length < 3) return null;
+  const prompt = rest[0].replace(/^(?:ข้อ\s*\d+\s*[.:)]?|\d+\s*[.)]|q\s*[:.]?)\s*/i, '').slice(0, 140);
+  let correct = -1; const choices = [];
+  rest.slice(1, 1 + MAXCH).forEach(l => {
+    let c = l, ok = false;
+    if (/^[*✓✔]\s*/.test(c)) { ok = true; c = c.replace(/^[*✓✔]\s*/, ''); }
+    else if (/\s*[*✓✔]$/.test(c)) { ok = true; c = c.replace(/\s*[*✓✔]$/, ''); }
+    c = c.replace(/^(?:[A-Ha-h]|[กขคงจฉชซ])[.)]\s*/, '').slice(0, 60);
+    if (ok) correct = choices.length;
+    choices.push(c);
+  });
+  return prompt && choices.length >= 2 ? { prompt, choices, correct, sec } : null;
+}
+function bulkParseQuiz(text) {
+  const lines = text.split(/\r?\n/), nonEmpty = lines.filter(l => l.trim());
+  if (nonEmpty.length && nonEmpty.filter(l => (l.match(/\t/g) || []).length >= 4).length >= nonEmpty.length / 2) return quizFromRows(parseRows(text));   // แถวที่คัดลอกจากชีต
+  const out = []; let block = [];
+  const flush = () => { if (block.length) { const q = quizBlock(block); if (q) out.push(q); } block = []; };
+  for (const raw of lines) { const l = raw.trim(); if (HDR.quiz.test(l)) continue; if (!l) flush(); else block.push(l); }
+  flush();
+  return out;
+}
+
+const BULK = {
+  vote: {
+    hint: 'พิมพ์หรือวางทีเดียวทั้งหมด ใช้หัวข้อ "รางวัล" กับ "ผู้เข้าชิง" แล้วตามด้วยรายการ ระบบแยกให้เอง',
+    example: `รางวัล
+😭 ขี้แงแห่งปี | น้ำตาไหลง่ายกว่าน้ำประปา
+🗣️ ปากแจ๋วแห่งปี | เรื่องงานเงียบ แต่เรื่องเมาท์ไม่เคยพัก | 60 | 3
+👑 เจ้าแม่ดราม่า - เรื่องเล่า 1 นาที ขยายได้ 3 ชั่วโมง
+
+ผู้เข้าชิง
+ทีมขาย: ก้อง, มิ้นท์, บอล
+ทีมซัพพอร์ต: ปอ, แพรว, เจมส์
+พี่ต้น
+
+(รางวัล: ชื่อ | คำจำกัดความ | วินาที | โหวตได้สูงสุดกี่คน  ใส่แค่ 2 ช่องแรกก็พอ
+ ผู้เข้าชิง: ชื่อกลุ่ม: รายชื่อคั่นด้วยคอมมา  หรือพิมพ์ชื่อทีละบรรทัด)`
+  },
+  quiz: {
+    hint: 'แต่ละข้อคือกลุ่มบรรทัดที่ติดกัน บรรทัดแรกคือคำถาม บรรทัดต่อไปคือตัวเลือก ใส่ * หน้าข้อที่ถูก เว้นบรรทัดก่อนข้อถัดไป',
+    example: `เมืองหลวงของประเทศไทยคือเมืองอะไร
+*กรุงเทพ
+เชียงใหม่
+ภูเก็ต
+ขอนแก่น
+
+2 ชั่วโมงเท่ากับกี่นาที
+60
+90
+*120
+240
+เวลา 30
+
+(ตัวเลือก 2 ถึง 8 ข้อ  เว้นเวลาไว้ = 20 วินาที  หรือวางแถวจากชีตได้เหมือนเดิม)`
+  }
+};
+function bulkParse() { return S.kind === 'vote' ? bulkParseVote($('bulkText').value) : { quiz: bulkParseQuiz($('bulkText').value) }; }
+function bulkSerialize() {
+  if (S.kind === 'vote') {
+    const aw = S.awards.filter(a => a.title.trim()).map(a => {
+      const f = [a.title.trim(), (a.note || '').trim()];
+      if (a.sec !== 90 || clampMax(a.max) !== 1) f.push(a.sec, clampMax(a.max));
+      return f.join(' | ').replace(/( \| )+$/, '');
+    });
+    const gr = S.groups.filter(g => g.names.length).map(g => (g.name.trim() ? g.name.trim() + ': ' : '') + g.names.join(', '));
+    return 'รางวัล\n' + aw.join('\n') + '\n\nผู้เข้าชิง\n' + gr.join('\n');
+  }
+  return S.quiz.filter(q => q.prompt.trim()).map(q => [q.prompt.trim(), ...q.choices.map((c, k) => (q.correct === k ? '*' : '') + c.trim()).filter(x => x.replace('*', '')), ...(q.sec !== 20 ? ['เวลา ' + q.sec] : [])].join('\n')).join('\n\n');
+}
+function bulkPreviewUpdate() {
+  const r = bulkParse(); let msg = '';
+  if (S.kind === 'vote') {
+    const n = r.groups.reduce((t, g) => t + g.names.length, 0);
+    msg = (r.awards.length || n) ? `พบรางวัล ${r.awards.length} รายการ และผู้เข้าชิง ${n} คน ใน ${r.groups.length} กลุ่ม` : 'ยังไม่พบข้อมูลที่ใช้ได้';
+  } else {
+    const miss = r.quiz.filter(q => q.correct < 0).length;
+    msg = r.quiz.length ? `พบคำถาม ${r.quiz.length} ข้อ` + (miss ? ` (${miss} ข้อยังไม่ได้ใส่ * หน้าข้อที่ถูก)` : '') : 'ยังไม่พบข้อมูลที่ใช้ได้';
+  }
+  $('bulkPreview').textContent = msg; $('bulkErr').textContent = '';
+}
+function openBulk() {
+  const k = S.kind;
+  $('bulkTitle').textContent = k === 'vote' ? 'วางรางวัลและผู้เข้าชิงทีเดียว' : 'วางคำถามทั้งหมดทีเดียว';
+  $('bulkHint').textContent = BULK[k].hint; $('bulkExample').textContent = BULK[k].example;
+  $('bulkText').value = ''; $('bulkText').placeholder = 'วางที่นี่ หรือกด "ดึงของที่มีอยู่มาแก้"';
+  document.querySelector('input[name=bulkMode][value=replace]').checked = true;
+  bulkPreviewUpdate(); $('bulkDlg').showModal(); $('bulkText').focus();
+}
+$('bulkText').addEventListener('input', bulkPreviewUpdate);
+$('bulkFill').onclick = () => { $('bulkText').value = bulkSerialize(); bulkPreviewUpdate(); };
+$('btnBulk').onclick = openBulk;
+$('btnBulk2').onclick = () => { closeMenu(); openBulk(); };
+$('bulkGo').onclick = e => {
+  e.preventDefault();
+  const append = document.querySelector('input[name=bulkMode]:checked').value === 'append', r = bulkParse();
+  if (S.kind === 'vote') {
+    const n = r.groups.reduce((t, g) => t + g.names.length, 0);
+    if (!r.awards.length && !n) return void ($('bulkErr').textContent = 'ยังไม่พบข้อมูลที่ใช้ได้ ลองดูตัวอย่างรูปแบบด้านล่างนะ');
+    if (r.awards.length) S.awards = append ? S.awards.filter(a => a.title.trim()).concat(r.awards) : r.awards;
+    if (n) {
+      if (!append) S.groups = r.groups;
+      else {
+        const have = new Set(S.groups.flatMap(g => g.names.map(x => x.toLowerCase())));
+        r.groups.forEach(g => {
+          const names = g.names.filter(x => !have.has(x.toLowerCase())); names.forEach(x => have.add(x.toLowerCase()));
+          if (!names.length) return;
+          const ex = S.groups.find(h => h.name.trim() === g.name.trim());
+          if (ex) ex.names.push(...names); else S.groups.push({ name: g.name, names });
+        });
+        S.groups = S.groups.filter(g => g.name.trim() || g.names.length);
+      }
+    }
+  } else {
+    if (!r.quiz.length) return void ($('bulkErr').textContent = 'ยังไม่พบคำถามที่ใช้ได้ ลองดูตัวอย่างรูปแบบด้านล่างนะ');
+    S.quiz = append ? S.quiz.filter(q => q.prompt.trim()).concat(r.quiz) : r.quiz;
+  }
+  renderAll(); save(); $('bulkDlg').close();
+  UI.toast(S.kind === 'vote' ? 'นำเข้ารางวัลและผู้เข้าชิงแล้ว' : `นำเข้าคำถาม ${r.quiz.length} ข้อแล้ว`);
+};
+
+// เริ่มใหม่ว่างเปล่า (ปุ่มเด่นข้างชื่อกิจกรรม ใช้ฟังก์ชันเดียวกับ "ล้างทั้งหมด" ในเมนู)
+$('btnBlank').onclick = $('btnClear').onclick;
+
+// ตัวเลือกอีโมจิต้องลอยเหนือการ์ดข้างล่าง และกดที่อื่นแล้วปิดเอง
+$('awardList').addEventListener('toggle', e => { const c = e.target.closest && e.target.closest('.acard'); if (c) c.classList.toggle('raised', e.target.open); }, true);
+document.addEventListener('click', e => { if (!e.target.closest('.emo')) document.querySelectorAll('.emo[open]').forEach(d => d.open = false); });
+
 renderAll();
 window.Studio = { build, kind: () => S.kind };

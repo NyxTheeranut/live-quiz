@@ -162,8 +162,21 @@ function lobby() {
 $('startBtn').onclick = () => intro(0);
 
 // ---------- 3-2-1 ก่อนเปิดข้อ ----------
-let preResolve = null;
-$('preGo').onclick = () => { if (preResolve) { const r = preResolve; preResolve = null; r(); } };
+let preResolve = null, introTok = 0, replayMode = false;
+$('preGo').onclick = () => { if (preResolve) { const r = preResolve; preResolve = null; r(true); } };
+// ย้อนกลับไปดูผลรางวัลก่อนหน้า (เผลอกดไปข้อถัดไป): หน้าโจทย์ก่อนเริ่ม = ผลของ G.qi, กำลังโหวตข้อใหม่อยู่ = ผลของข้อก่อนหน้า
+const canGoBack = () => !!G && G.kind === 'vote' && G.qi >= 0;
+async function goBackToResult() {
+  const voting = !$('h-q').classList.contains('hide');
+  if (voting && !(await UI.confirm('ปิดโหวตข้อนี้ชั่วคราวและกลับไปดูผลรางวัลก่อนหน้า? คะแนนที่โหวตไปแล้วยังอยู่ แต่เวลาจะเริ่มนับใหม่ตอนเปิดโหวตอีกครั้ง', 'ย้อนกลับ'))) return;
+  introTok++; stopTimers(); leaveFog(); resetAllIn(); Sound.stopMusic(.2);
+  if (preResolve) { const r = preResolve; preResolve = null; r(false); }
+  $('cd').classList.add('hide');
+  G.qi = voting ? G.qi - 1 : G.qi; saveGame();
+  revealing = false; replayMode = true;
+  try { await reveal(); } finally { replayMode = false; }
+}
+$('preBack').onclick = goBackToResult; $('backBtn').onclick = goBackToResult;
 // หัวข้อ (ควิซ): ข้อที่มี groups.topic คือข้อแรกของหัวข้อใหม่ คะแนนยังรวมกันทั้งเกม
 const topicStart = i => G.kind === 'quiz' && G.questions[i] && G.questions[i].groups && G.questions[i].groups.topic || '';
 const topicList = () => G.questions.map((q, i) => i).filter(i => topicStart(i));
@@ -176,14 +189,17 @@ async function topicSplash(i) {
   $('preNote').textContent = `${count} ข้อในหัวข้อนี้`; $('preNote').classList.remove('hide');
   $('preTime').classList.add('hide'); $('preMax').classList.add('hide');
   $('preGo').innerHTML = '<i class="ph-fill ph-flag-banner" aria-hidden="true"></i>เริ่มหัวข้อนี้';
+  $('preBack').classList.toggle('hide', !canGoBack());
   show('h-pre'); Sound.music(musicOn(), .14); sfx.win(); $('preGo').focus();
-  await new Promise(res => { preResolve = res; });
-  sfx.go(); $('preTime').classList.remove('hide');
+  const go = await new Promise(res => { preResolve = res; });
+  if (!go) return false;
+  sfx.go(); $('preTime').classList.remove('hide'); return true;
 }
 async function intro(i) {
   stopTimers(); Sound.stopMusic();
   const q = G.questions[i], vote = G.kind === 'vote';
-  if (topicStart(i)) await topicSplash(i);
+  const tok = ++introTok;
+  if (topicStart(i) && !(await topicSplash(i))) return;
   if (cfg().preview !== false) {                     // แสดงโจทย์ค้างไว้ จนกว่าผู้จัดจะกดเริ่ม ผู้เล่นถึงจะโหวตหรือตอบได้
     send({ type: 'ready', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', preview: true });
     $('preLabel').textContent = `${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
@@ -192,8 +208,10 @@ async function intro(i) {
     $('preTime').textContent = `${vote ? 'โหวต' : 'ตอบ'} ${q.duration} วินาที`;
     $('preMax').textContent = `โหวตได้คนละ ${q.max_votes || 1} คน`; $('preMax').classList.toggle('hide', !vote || !(q.max_votes > 1));
     $('preGo').innerHTML = `<i class="ph-fill ph-play" aria-hidden="true"></i>${vote ? 'เริ่มโหวต' : 'เริ่มตอบ'}`;
+    $('preBack').classList.toggle('hide', !canGoBack());
     show('h-pre'); Sound.music(musicOn(), .14); $('preGo').focus();
-    await new Promise(res => { preResolve = res; });
+    const go = await new Promise(res => { preResolve = res; });
+    if (!go || tok !== introTok) return;
     sfx.go();
     return askQuestion(i);
   }
@@ -204,6 +222,7 @@ async function intro(i) {
   for (let n = 3; n >= 1; n--) {
     $('cdNum').textContent = n; restart($('cdNum'), 'pop .6s var(--spring) both');
     sfx.tick(); await wait(reduceMotion ? 350 : 1000);
+    if (tok !== introTok) return;
   }
   sfx.go(); $('cd').classList.add('hide');
   askQuestion(i);
@@ -216,6 +235,7 @@ async function askQuestion(i) {
   const { error } = await host('set_phase', { p_phase: 'question', p_q: i });
   if (error) return UI.toast(error.message);
   G.qi = i; saveGame();
+  $('backBtn').classList.toggle('hide', !(vote && i > 0));
   await send({ type: 'question', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', choices: q.choices, groups: q.groups || null, hideText: !vote && !!(q.groups && q.groups.hideText), maxVotes: q.max_votes || 1, duration: q.duration });
 
   $('qnum').textContent = `${topicOf(i) ? topicOf(i) + ' · ' : ''}${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
@@ -692,7 +712,7 @@ async function revealVote(i, q, last) {
   $('drum').textContent = 'กำลังเปิดซอง...';
 
   // พิธีรับรางวัล: เปิดอันดับ 3 แล้วอันดับ 2 ทีละคน ก่อนเฉลยผู้ชนะ
-  const c = cfg();
+  const c = replayMode ? { ...cfg(), ceremony: false } : cfg();
   const steps = c.ceremony ? 22 : 16;
   let drumOn = false, spinSec = 0; for (let k = 0; k < steps; k++) spinSec += (70 + k * k * .55) / 1000;
   if (c.ceremony && !reduceMotion && winners.length) {
@@ -715,7 +735,7 @@ async function revealVote(i, q, last) {
     drumOn = true; Sound.drumroll(1.4 + spinSec); await wait(1400);
   }
   // สล็อตเมชชีน: ชื่อวิ่งเร็วแล้วค่อย ๆ ช้าลง ก่อนหยุดที่ผู้ชนะ
-  if (!reduceMotion && q.choices.length > 1) {
+  if (!reduceMotion && !replayMode && q.choices.length > 1) {
     if (!drumOn) Sound.drumroll(spinSec);
     for (let k = 0; k < steps; k++) {
       $('winner').textContent = q.choices[(Math.random() * q.choices.length) | 0];

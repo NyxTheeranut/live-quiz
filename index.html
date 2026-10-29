@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029152857">
+<link rel="stylesheet" href="theme.css?v=20261029154812">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029152857"></script>
+<script src="config.js?v=20261029154812"></script>
 <style>
   main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
   section { flex: 1; display: flex; flex-direction: column; }
@@ -218,6 +218,7 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 const SCREENS = ['s-pin', 's-nick', 's-wait', 's-ready', 's-vote', 's-voted', 's-vresult', 's-q', 's-locked', 's-result', 's-end'];
 let curScreen = 's-pin';
+const seenQ = {};
 // กดแล้วตอบสนองทันที: ปุ่มยุบลง และสั่นเบา ๆ (เครื่องที่รองรับ) ก่อนที่กล่องยืนยันจะเด้งขึ้น
 document.addEventListener('pointerdown', e => {
   const b = e.target.closest && e.target.closest('.item, .btn'); if (!b || b.disabled) return;
@@ -392,7 +393,7 @@ function onReady(m) {
 function onQuestion(m) {
   if (cur && cur.idx === m.idx) return;   // ข้อเดิมที่ resync ส่งซ้ำ ไม่ต้องรีเซ็ตหน้าจอ
   sel = [...(myVote[m.idx] || [])]; lastTally = null;
-  cur = m;
+  cur = m; seenQ[m.idx] = m;
   if (m.kind === 'vote') return openVote(m);
   clearInterval(tick);
   if (answeredIdx === m.idx) return show('s-locked');
@@ -567,8 +568,8 @@ function paintLive() {
 
 function onVoteReveal(m) {
   clearInterval(tick);
-  const q = cur;
-  if (!q || q.idx !== m.idx) return show('s-wait');
+  const q = seenQ[m.idx] || (cur && cur.idx === m.idx ? cur : null);      // รองรับกรณีพิธีกรย้อนกลับมาดูผลข้อก่อนหน้า
+  if (!q) return show('s-wait');
   const ranked = Object.entries(m.dist).map(([k, n]) => ({ k: +k, n })).sort((a, b) => b.n - a.n || a.k - b.k);
   const topN = ranked.length ? ranked[0].n : 0;
   const winners = ranked.filter(r => r.n === topN && topN > 0);
@@ -619,7 +620,7 @@ function onEnded(m) {
   show('s-end');
 }
 </script>
-<script src="ui.js?v=20261029152857"></script>
-<script src="fx.js?v=20261029152857"></script>
+<script src="ui.js?v=20261029154812"></script>
+<script src="fx.js?v=20261029154812"></script>
 </body>
 </html>

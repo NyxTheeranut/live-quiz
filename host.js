@@ -544,9 +544,16 @@ async function reveal() {
   await send({ type: 'reveal', kind: 'quiz', idx: i, correct: data.correct, board });
   const answeredN = Object.values(data.dist).reduce((a, b) => a + b, 0);
   $('voteResult').classList.add('hide'); $('quizResult').classList.remove('hide');
-  $('bars').innerHTML = q.choices.map((c, k) => !c ? '' : `
-    <div class="qb tint${k + 1} ${k === data.correct ? '' : 'wrong'}"><i class="ph-fill ph-${SHAPES[k]}" aria-hidden="true"></i>
-      <span>${esc(c)}</span><b>${data.dist[k] || 0}${k === data.correct ? ' (ถูก)' : ''}</b></div>`).join('');
+  const peak = Math.max(1, ...q.choices.map((c, k) => c ? (data.dist[k] || 0) : 0));
+  const shown = q.choices.map((c, k) => [c, k]).filter(([c]) => c);
+  $('bars').style.setProperty('--n', shown.length);
+  $('bars').innerHTML = shown.map(([c, k], n) => {
+    const v = data.dist[k] || 0, ok = k === data.correct, pct = answeredN ? Math.round(v * 100 / answeredN) : 0;
+    return `<div class="qcol tint${k + 1} ${ok ? 'right' : 'wrong'}" style="--d:${n * 90}ms">
+      <div class="qtop">${ok ? '<span class="qok"><i class="ph-fill ph-check-circle" aria-hidden="true"></i>ถูก</span>' : ''}<b class="qn num">${v}</b><span class="qpct num">${pct}%</span></div>
+      <div class="qtrack"><div class="qfill" style="height:${v ? Math.max(6, Math.round(v * 100 / peak)) : 3}%"></div></div>
+      <div class="qlab"><i class="ph-fill ph-${SHAPES[k]}" aria-hidden="true"></i><span>${esc(c)}</span></div></div>`;
+  }).join('');
   show('h-reveal');
   sfx.pop(); if ((data.dist[data.correct] || 0) > 0) sfx.win();
   nextAction = showBoard;                                          // ดูเฉลยก่อน แตะหนึ่งครั้งค่อยไปดูอันดับ

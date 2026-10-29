@@ -23,6 +23,9 @@
   --c6: #A8E05F;   /* lime   */
   --c7: #FF8A3D;   /* orange */
   --c8: #B79CFF;   /* lavender */
+  --gold: #FFC233;   /* medals: 1st, 2nd, 3rd */
+  --silver: #D3DBE8;
+  --bronze: #E0894A;
   --on-c: #1A1206; /* dark ink on every candy colour */
   --accent: var(--c3);
   --on-accent: var(--on-c);

@@ -572,7 +572,7 @@ function renderPodium(el, items, maxH = 230) {
   el.innerHTML = order.map(it => {
     const r = rankOf(it), h = Math.max(Math.round(maxH * .35), Math.round(it.n / max * maxH));
     const tint = r === 1 ? 3 : r === 2 ? 2 : 4, dl = r === 3 ? 0 : r === 2 ? .35 : .75;
-    return `<div class="step tint${tint}"><div class="who" style="--dl:${dl}s">${esc(it.label)}<small>${esc(it.sub || '')}</small></div><div class="block" style="--h:${h}px;--dl:${dl}s">${r}</div></div>`;
+    return `<div class="step m${r} tint${tint}"><div class="who" style="--dl:${dl}s"><i class="ph-fill ph-crown-simple medal" aria-hidden="true"></i>${esc(it.label)}<small>${esc(it.sub || '')}</small></div><div class="block" style="--h:${h}px;--dl:${dl}s">${r}</div></div>`;
   }).join('');
 }
 
@@ -586,7 +586,7 @@ async function reveal() {
   setNext(null, false);
   if (G.kind === 'vote') {            // ขึ้นหน้าประกาศผลทันที ก่อนรอเน็ต จะได้ไม่มีภาพอันดับหลุดให้เห็น
     $('voteResult').classList.remove('hide'); $('quizResult').classList.add('hide');
-    $('stage').classList.add('pending'); $('stage').classList.remove('pop', 'won');
+    $('stage').classList.add('pending'); $('stage').classList.remove('pop', 'won'); $('stage').dataset.rank = '';
     $('drum').classList.remove('done'); $('drum').textContent = 'กำลังนับคะแนน...';
     $('winner').textContent = '...'; $('winnerSub').textContent = ''; $('pod').innerHTML = ''; $('runners').innerHTML = ''; $('placed').innerHTML = '';
     show('h-reveal');
@@ -725,7 +725,7 @@ async function revealVote(i, q, last) {
       $('drum').textContent = `อันดับ ${rk} ตกเป็นของ...`; $('winner').textContent = '...'; $('winnerSub').textContent = '';
       $('stage').classList.add('pending');
       Sound.drumroll(1.5); await wait(1500); sfx.crash();
-      $('stage').classList.remove('pending'); $('winner').textContent = q.choices[r.k]; restart($('winner'), 'pop .6s var(--spring) both');
+      $('stage').dataset.rank = rk; $('stage').classList.remove('pending'); $('winner').textContent = q.choices[r.k]; restart($('winner'), 'pop .6s var(--spring) both');
       $('winnerSub').textContent = `${r.n} คะแนน`; $('drum').textContent = `อันดับ ${rk}`; sfx.pop(); sfx.pop();
       $('placed').insertAdjacentHTML('afterbegin', `<li>อันดับ ${rk}: <b>${esc(q.choices[r.k])}</b> ${r.n} คะแนน</li>`);
     }
@@ -743,7 +743,7 @@ async function revealVote(i, q, last) {
       await wait(70 + k * k * .55);
     }
   }
-  $('stage').classList.remove('pending'); $('stage').classList.add('won'); restart($('winner'), 'pop .6s var(--spring) both');
+  $('stage').dataset.rank = 1; $('stage').classList.remove('pending'); $('stage').classList.add('won'); restart($('winner'), 'pop .6s var(--spring) both');
   $('drum').classList.add('done'); $('placed').innerHTML = '';
   $('winner').textContent = winText;
   $('winnerSub').textContent = !winners.length ? '' : (winners.length > 1 ? `เสมอกัน ${topN} คะแนน` : `${topN} คะแนน จากผู้โหวต ${data.answered} คน`);

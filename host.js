@@ -303,6 +303,13 @@ function setAllIn(on) {
   $('closeBtn').classList.toggle('allin', on); tools.classList.toggle('allin', on);
   $('closeLabel').textContent = on ? 'ประกาศผล' : 'ปิดโหวตและประกาศผล';
 }
+$('tokShow').onclick = () => {
+  const hid = $('endToken').textContent.startsWith('•');
+  $('endToken').textContent = hid ? G.host_token : '••••••••'; $('tokShow').textContent = hid ? 'ซ่อน' : 'แสดง';
+};
+$('tokCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText(G.host_token); UI.toast('คัดลอกโทเคนแล้ว'); } catch (e) { UI.toast('คัดลอกไม่ได้ กด "แสดง" แล้วลากคลุมเอง'); }
+};
 $('revealBtn').onclick = () => reveal();
 $('closeBtn').onclick = () => reveal();
 
@@ -776,7 +783,7 @@ async function finish() {
     $('finalRows').innerHTML = rest.map((r, k) => `<div class="frow tint${tintOf(r[0])}" style="--i:${k};--w:${(r[1] / top).toFixed(3)}" role="listitem"><span class="fr">${k + 4}</span><span class="fn">${esc(r[0])}</span><div class="fbar"><i></i></div><b class="fs">${fmtN(r[1])}</b></div>`).join('');
   }
   $('endPin').textContent = G.pin;
-  $('endToken').textContent = G.host_token;
+  $('endToken').textContent = '••••••••'; $('tokShow').textContent = 'แสดง';       // โทเคนเป็นความลับ ไม่โชว์บนจอโปรเจกเตอร์โดยอัตโนมัติ
   show('h-end');
   if (G.kind === 'quiz') document.body.classList.add('lockq');
   sfx.crash(); sfx.win(); confetti();

@@ -502,3 +502,6 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .librow .sa { display: flex; align-items: center; gap: 4px; flex: none; }
 
 .stage.won .sub { color: var(--text); text-shadow: 0 2px 14px var(--bg), 0 0 4px var(--bg); }
+
+.linkbtn { min-height: 36px; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--c2); font: 700 .9rem var(--font-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; touch-action: manipulation; }
+.linkbtn:hover { background: var(--surface-2); }

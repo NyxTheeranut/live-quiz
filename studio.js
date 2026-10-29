@@ -156,6 +156,9 @@ function renderQuiz(focus) {
     return `<article class="qcard" data-i="${i}">
       <div class="anum tint${i % 4 + 1}">${i + 1}</div>
       <div class="qbody">
+        ${q.topic !== undefined
+          ? `<div class="topicrow"><i class="ph-fill ph-flag-banner" aria-hidden="true"></i><input type="text" data-f="topic" maxlength="40" value="${esc(q.topic)}" aria-label="ชื่อหัวข้อ" placeholder="ชื่อหัวข้อ เช่น ภูมิศาสตร์ (ข้อต่อ ๆ ไปอยู่ในหัวข้อนี้จนกว่าจะเริ่มหัวข้อใหม่)"><button type="button" class="iconbtn" data-act="topicdel" aria-label="ยกเลิกหัวข้อนี้"><i class="ph-bold ph-x" aria-hidden="true"></i></button></div>`
+          : `<button type="button" class="addtopic" data-act="topicadd"><i class="ph-bold ph-flag-banner" aria-hidden="true"></i>เริ่มหัวข้อใหม่ตรงนี้</button>`}
         <div><label class="mini" for="qp${i}">คำถาม</label>
           <textarea id="qp${i}" data-f="prompt" rows="2" maxlength="140" placeholder="พิมพ์คำถามที่นี่">${esc(q.prompt)}</textarea></div>
         <div class="answers">${q.choices.map((c, k) => `
@@ -306,12 +309,14 @@ $('addGroup').onclick = () => { S.groups.push({ name: '', names: [] }); renderGr
 $('quizList').addEventListener('input', e => {
   const f = e.target.dataset.f; if (!f) return;
   const q = S.quiz[+e.target.closest('.qcard').dataset.i];
-  if (f === 'prompt') q.prompt = e.target.value; else if (f === 'ch') q.choices[+e.target.dataset.k] = e.target.value;
+  if (f === 'prompt') q.prompt = e.target.value; else if (f === 'topic') q.topic = e.target.value; else if (f === 'ch') q.choices[+e.target.dataset.k] = e.target.value;
   save();
 });
 $('quizList').addEventListener('click', e => {
   const b = e.target.closest('button[data-act]'); if (!b) return;
   const i = +b.closest('.qcard').dataset.i, act = b.dataset.act, q = S.quiz[i];
+  if (act === 'topicadd') { q.topic = ''; renderQuiz(`[data-i="${i}"] [data-f=topic]`); save(); return; }
+  if (act === 'topicdel') { delete q.topic; renderQuiz(`[data-i="${i}"] [data-act=topicadd]`); save(); return; }
   if (act === 'chadd') {
     if (q.choices.length < MAXCH) { q.choices.push(''); renderQuiz(`[data-i="${i}"] [data-f=ch][data-k="${q.choices.length - 1}"]`); save(); }
     return;
@@ -325,6 +330,7 @@ $('quizList').addEventListener('click', e => {
   if (act === 'sec') { q.sec = +b.dataset.s; renderQuiz(`[data-i="${i}"] [data-act=sec][data-s="${b.dataset.s}"]`); save(); return; }
   const at = listAction(S.quiz, i, act, () => ({ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }));
   if (at === null) return;
+  if (act === 'dup') delete S.quiz[at].topic;                      // สำเนาไม่ต้องเริ่มหัวข้อใหม่ซ้ำ
   renderQuiz(`[data-i="${at}"] [data-f=prompt]`); save();
 });
 $('addQuiz').onclick = () => { S.quiz.push({ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }); renderQuiz(`[data-i="${S.quiz.length - 1}"] [data-f=prompt]`); save(); };
@@ -434,7 +440,7 @@ function build() {
     if (!q.prompt.trim()) return { error: `ข้อ ${n} ยังไม่มีคำถาม`, focus: `#quizList [data-i="${i}"] [data-f=prompt]` };
     if (ch.filter(Boolean).length < 2) return { error: `ข้อ ${n} ต้องมีตัวเลือกอย่างน้อย 2 ข้อ`, focus: `#quizList [data-i="${i}"] [data-f=ch]` };
     if (q.correct < 0 || !ch[q.correct]) return { error: `ข้อ ${n} ยังไม่ได้เลือกข้อที่ถูก (กดปุ่มเครื่องหมายถูกที่ตัวเลือกที่ถูก)`, focus: `#quizList [data-i="${i}"] [data-act=correct]` };
-    out.push({ prompt: q.prompt.trim(), choices: ch, correct: q.correct, duration: clamp(q.sec, 20), groups: S.settings.hideText ? { hideText: true } : null });
+    out.push({ prompt: q.prompt.trim(), choices: ch, correct: q.correct, duration: clamp(q.sec, 20), groups: (S.settings.hideText || (q.topic || '').trim()) ? { ...(S.settings.hideText ? { hideText: true } : {}), ...((q.topic || '').trim() ? { topic: q.topic.trim() } : {}) } : null });
   }
   if (!out.length) return { error: 'ใส่คำถามอย่างน้อย 1 ข้อก่อนนะ', focus: '#quizList [data-f=prompt]' };
   return { kind: 'quiz', title, questions: out, settings: { ...S.settings } };
@@ -511,9 +517,13 @@ function quizBlock(b) {
 function bulkParseQuiz(text) {
   const lines = text.split(/\r?\n/), nonEmpty = lines.filter(l => l.trim());
   if (nonEmpty.length && nonEmpty.filter(l => (l.match(/\t/g) || []).length >= 4).length >= nonEmpty.length / 2) return quizFromRows(parseRows(text));   // แถวที่คัดลอกจากชีต
-  const out = []; let block = [];
-  const flush = () => { if (block.length) { const q = quizBlock(block); if (q) out.push(q); } block = []; };
-  for (const raw of lines) { const l = raw.trim(); if (HDR.quiz.test(l)) continue; if (!l) flush(); else block.push(l); }
+  const out = []; let block = [], topic = null;
+  const flush = () => { if (block.length) { const q = quizBlock(block); if (q) { if (topic !== null) { q.topic = topic; topic = null; } out.push(q); } } block = []; };
+  for (const raw of lines) {
+    const l = raw.trim(); if (HDR.quiz.test(l)) continue;
+    const t = !block.length && l.match(/^(?:#+\s*|หัวข้อ(?:ที่\s*\d+)?\s*[:：]\s*)(.+)$/);   // # ชื่อหัวข้อ  ก่อนข้อแรกของหัวข้อนั้น
+    if (t) topic = t[1].trim().slice(0, 40); else if (!l) flush(); else block.push(l);
+  }
   flush();
   return out;
 }
@@ -525,6 +535,7 @@ function paintExample(kind, text) {
   return text.split('\n').map(l => {
     if (kind === 'quiz') {
       if (!l.trim()) { mode = ''; return ''; }
+      if (/^#/.test(l)) return sp('k5', l);
       if (/^เวลา\s/.test(l)) return sp('k3', l);
       if (/^\*/.test(l)) return sp('k4', l);
       const first = mode !== 'q'; mode = 'q';
@@ -574,12 +585,14 @@ const BULK = {
   },
   quiz: {
     hint: 'แต่ละข้อคือกลุ่มบรรทัดที่ติดกัน บรรทัดแรกคือคำถาม บรรทัดต่อไปคือตัวเลือก ใส่ * หน้าข้อที่ถูก เว้นบรรทัดก่อนข้อถัดไป',
-    example: `เมืองหลวงของประเทศไทยคือเมืองอะไร
+    example: `# ภูมิศาสตร์
+เมืองหลวงของประเทศไทยคือเมืองอะไร
 *กรุงเทพ
 เชียงใหม่
 ภูเก็ต
 ขอนแก่น
 
+# คณิตศาสตร์
 2 ชั่วโมงเท่ากับกี่นาที
 60
 90
@@ -587,12 +600,13 @@ const BULK = {
 240
 เวลา 30`,
     legend: [
+      ['k5', 'หัวข้อ (ไม่บังคับ)', 'ขึ้นต้นด้วย # ข้อต่อ ๆ ไปอยู่หัวข้อนี้'],
       ['k1', 'คำถาม', 'บรรทัดแรกของแต่ละข้อ'],
       ['k2', 'ตัวเลือก', '2 ถึง 8 ข้อ ข้อละบรรทัด'],
       ['k4', 'ข้อที่ถูก', 'ใส่ * นำหน้า'],
       ['k3', 'เวลา', 'ไม่ใส่ = 20 วินาที']
     ],
-    why: 'เว้นหนึ่งบรรทัดระหว่างข้อ เพื่อบอกว่าข้อหนึ่งจบแล้ว ไม่ต้องใส่เลขข้อหรือ ก ข ค ง เพราะบนจอมีสีกับรูปร่างประจำแต่ละตัวเลือกอยู่แล้ว',
+    why: 'อยากแบ่งเป็นหลายหัวข้อในเกมเดียว ใส่ # ชื่อหัวข้อ ก่อนข้อแรกของหัวข้อนั้น คะแนนรวมกันทั้งเกม เว้นหนึ่งบรรทัดระหว่างข้อ เพื่อบอกว่าข้อหนึ่งจบแล้ว ไม่ต้องใส่เลขข้อหรือ ก ข ค ง เพราะบนจอมีสีกับรูปร่างประจำแต่ละตัวเลือกอยู่แล้ว',
     ai: `ช่วยจัดข้อสอบของฉันให้อยู่ในรูปแบบข้อความด้านล่างนี้ ตอบเฉพาะข้อความที่จัดแล้ว ไม่ต้องอธิบายเพิ่ม
 
 รูปแบบ (หนึ่งข้อต่อหนึ่งกลุ่มบรรทัด เว้นหนึ่งบรรทัดว่างระหว่างข้อ):
@@ -618,7 +632,7 @@ function bulkSerialize() {
     const gr = S.groups.filter(g => g.names.length).map(g => (g.name.trim() ? g.name.trim() + ': ' : '') + g.names.join(', '));
     return 'รางวัล\n' + aw.join('\n') + '\n\nผู้เข้าชิง\n' + gr.join('\n');
   }
-  return S.quiz.filter(q => q.prompt.trim()).map(q => [q.prompt.trim(), ...q.choices.map((c, k) => (q.correct === k ? '*' : '') + c.trim()).filter(x => x.replace('*', '')), ...(q.sec !== 20 ? ['เวลา ' + q.sec] : [])].join('\n')).join('\n\n');
+  return S.quiz.filter(q => q.prompt.trim()).map(q => [...((q.topic || '').trim() ? ['# ' + q.topic.trim()] : []), q.prompt.trim(), ...q.choices.map((c, k) => (q.correct === k ? '*' : '') + c.trim()).filter(x => x.replace('*', '')), ...(q.sec !== 20 ? ['เวลา ' + q.sec] : [])].join('\n')).join('\n\n');
 }
 function bulkPreviewUpdate() {
   const r = bulkParse(); let msg = '';

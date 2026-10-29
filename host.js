@@ -164,9 +164,26 @@ $('startBtn').onclick = () => intro(0);
 // ---------- 3-2-1 ก่อนเปิดข้อ ----------
 let preResolve = null;
 $('preGo').onclick = () => { if (preResolve) { const r = preResolve; preResolve = null; r(); } };
+// หัวข้อ (ควิซ): ข้อที่มี groups.topic คือข้อแรกของหัวข้อใหม่ คะแนนยังรวมกันทั้งเกม
+const topicStart = i => G.kind === 'quiz' && G.questions[i] && G.questions[i].groups && G.questions[i].groups.topic || '';
+const topicList = () => G.questions.map((q, i) => i).filter(i => topicStart(i));
+function topicOf(i) { for (let k = i; k >= 0; k--) if (topicStart(k)) return topicStart(k); return ''; }
+async function topicSplash(i) {
+  const tl = topicList(), no = tl.indexOf(i) + 1, end = tl[no] !== undefined ? tl[no] : G.questions.length, count = end - i;
+  send({ type: 'topic', title: topicStart(i), no, total: tl.length, count });
+  $('preLabel').textContent = `หัวข้อที่ ${no} จาก ${tl.length}`;
+  $('preTitle').textContent = topicStart(i); restart($('preTitle'), 'rise .6s var(--ease) both');
+  $('preNote').textContent = `${count} ข้อในหัวข้อนี้`; $('preNote').classList.remove('hide');
+  $('preTime').classList.add('hide'); $('preMax').classList.add('hide');
+  $('preGo').innerHTML = '<i class="ph-fill ph-flag-banner" aria-hidden="true"></i>เริ่มหัวข้อนี้';
+  show('h-pre'); Sound.music(musicOn(), .14); sfx.win(); $('preGo').focus();
+  await new Promise(res => { preResolve = res; });
+  sfx.go(); $('preTime').classList.remove('hide');
+}
 async function intro(i) {
   stopTimers(); Sound.stopMusic();
   const q = G.questions[i], vote = G.kind === 'vote';
+  if (topicStart(i)) await topicSplash(i);
   if (cfg().preview !== false) {                     // แสดงโจทย์ค้างไว้ จนกว่าผู้จัดจะกดเริ่ม ผู้เล่นถึงจะโหวตหรือตอบได้
     send({ type: 'ready', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', preview: true });
     $('preLabel').textContent = `${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
@@ -201,7 +218,7 @@ async function askQuestion(i) {
   G.qi = i; saveGame();
   await send({ type: 'question', idx: i, kind: G.kind, prompt: q.prompt, note: q.note || '', choices: q.choices, groups: q.groups || null, hideText: !vote && !!(q.groups && q.groups.hideText), maxVotes: q.max_votes || 1, duration: q.duration });
 
-  $('qnum').textContent = `${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
+  $('qnum').textContent = `${topicOf(i) ? topicOf(i) + ' · ' : ''}${vote ? 'รางวัลที่' : 'ข้อที่'} ${i + 1} จาก ${G.questions.length}`;
   $('qprompt').textContent = q.prompt; restart($('qprompt'), 'rise .6s var(--ease) both');
   $('qnote').textContent = q.note || '';
   $('qmax').textContent = 'โหวตได้คนละ ' + (q.max_votes || 1) + ' คน'; $('qmax').classList.toggle('hide', !vote || !(q.max_votes > 1));

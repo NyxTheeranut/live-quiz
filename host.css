@@ -482,3 +482,11 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
   #h-q .qtitle { font-size: clamp(1.4rem, min(3.6vw, 5.6vh), 2.6rem); }
   #h-q.qscreen .award-note { font-size: clamp(.9rem, 2.2vh, 1.1rem); }
 }
+
+/* quiz topics (studio) */
+.topicrow { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px; margin-bottom: 4px; border-radius: var(--r-pill); background: var(--surface-2); border: 2px solid var(--c3); }
+.topicrow > i { color: var(--c3); font-size: 1.3rem; flex: none; }
+.topicrow input { min-height: 40px; border: 0; background: transparent; font-weight: 700; padding: 0 6px; }
+.topicrow input:focus-visible { outline-offset: 2px; }
+.addtopic { justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 2px dashed var(--line); border-radius: var(--r-pill); background: transparent; color: var(--muted); font: 600 .9rem var(--font-body); cursor: pointer; touch-action: manipulation; }
+.addtopic:hover { color: var(--text); border-color: var(--c3); }

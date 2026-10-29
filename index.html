@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029142906">
+<link rel="stylesheet" href="theme.css?v=20261029145233">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029142906"></script>
+<script src="config.js?v=20261029145233"></script>
 <style>
   main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
   section { flex: 1; display: flex; flex-direction: column; }
@@ -363,6 +363,7 @@ function startTimer(seconds, ids, onEnd) {
 }
 
 function handle(m) {
+  if (m.type === 'topic') return onTopic(m);
   if (m.type === 'ready') return onReady(m);
   if (m.type === 'question') return onQuestion(m);
   if (m.type === 'tally') return onTally(m);
@@ -370,8 +371,15 @@ function handle(m) {
   if (m.type === 'ended') return onEnded(m);
 }
 
+function onTopic(m) {
+  clearInterval(tick);
+  $('hello').textContent = 'หัวข้อใหม่: ' + m.title;
+  $('waitMsg').textContent = `หัวข้อที่ ${m.no} จาก ${m.total} มี ${m.count} ข้อ ดูที่หน้าจอใหญ่`;
+  show('s-wait');
+}
 function onReady(m) {
   clearInterval(tick);
+  $('hello').textContent = 'สวัสดี ' + me.nick;
   $('readyLabel').textContent = (m.kind === 'vote' ? 'รางวัลที่ ' : 'ข้อที่ ') + (m.idx + 1);
   $('readyTitle').textContent = m.prompt;
   $('readyNote').textContent = m.note || ''; $('readyNote').classList.toggle('hide', !m.note);
@@ -609,7 +617,7 @@ function onEnded(m) {
   show('s-end');
 }
 </script>
-<script src="ui.js?v=20261029142906"></script>
-<script src="fx.js?v=20261029142906"></script>
+<script src="ui.js?v=20261029145233"></script>
+<script src="fx.js?v=20261029145233"></script>
 </body>
 </html>

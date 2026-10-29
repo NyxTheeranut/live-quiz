@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261028212312">
-<link rel="stylesheet" href="host.css?v=20261028212312">
+<link rel="stylesheet" href="theme.css?v=20261029102247">
+<link rel="stylesheet" href="host.css?v=20261029102247">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261028212312"></script>
+<script src="config.js?v=20261029102247"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -96,6 +96,14 @@
             <label><input type="radio" name="hideAt" value="70"><span>70%</span></label>
           </div>
         </fieldset>
+        <fieldset class="setrow" style="margin-top:6px">
+          <legend>รูปแบบแสดงคะแนนสดบนจอใหญ่</legend>
+          <p class="hint">เลือกก่อนเริ่มเกม หมอกบังใช้ได้ทั้งสองแบบ</p>
+          <div class="chipset">
+            <label><input type="radio" name="viewStyle" value="bars" checked><span>กราฟแท่งอันดับ</span></label>
+            <label><input type="radio" name="viewStyle" value="cloud"><span>กลุ่มคำ (ขนาดตามคะแนน)</span></label>
+          </div>
+        </fieldset>
         <label class="switchrow">
           <input type="checkbox" role="switch" id="setCeremony">
           <span class="sw" aria-hidden="true"></span>
@@ -172,14 +180,17 @@
 
   <div id="voteLive">
     <div class="tools">
-      <div class="seg" id="viewSeg" role="radiogroup" aria-label="มุมมองคะแนน">
-        <label><input type="radio" name="view" value="person" checked><span>รายคน</span></label>
-        <label><input type="radio" name="view" value="group"><span>รายกลุ่ม</span></label>
+      <div class="segs">
+        <div class="seg" id="viewSeg" role="radiogroup" aria-label="มุมมองคะแนน">
+          <label><input type="radio" name="view" value="person" checked><span>รายคน</span></label>
+          <label><input type="radio" name="view" value="group"><span>รายกลุ่ม</span></label>
+        </div>
       </div>
       <button class="btn" id="closeBtn"><i class="ph-fill ph-trophy" aria-hidden="true"></i>ปิดโหวตและประกาศผล</button>
     </div>
     <div id="fog" class="fog hide">
       <div id="fogChart" class="chart fogchart" aria-hidden="true"></div>
+      <div id="fogCloud" class="cloud fogcloud hide" aria-hidden="true"></div>
       <div class="veil" aria-hidden="true"></div>
       <div class="fog-center">
         <div id="fogText" class="fog-text" aria-live="polite">คะแนนถูกซ่อนไว้แล้ว</div>
@@ -187,6 +198,7 @@
       </div>
     </div>
     <div id="chart" class="chart"></div>
+    <div id="cloud" class="cloud hide" role="img" aria-label="กลุ่มคำแสดงคะแนนสด ชื่อที่ได้คะแนนมากจะตัวใหญ่"></div>
     <div id="chartEmpty" class="empty"><i class="ph-bold ph-hand-pointing bob" aria-hidden="true"></i>รอคะแนนแรกอยู่นะ...</div>
   </div>
 
@@ -271,10 +283,10 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261028212312"></script>
-<script src="fx.js?v=20261028212312"></script>
-<script src="sound.js?v=20261028212312"></script>
-<script src="studio.js?v=20261028212312"></script>
-<script src="host.js?v=20261028212312"></script>
+<script src="ui.js?v=20261029102247"></script>
+<script src="fx.js?v=20261029102247"></script>
+<script src="sound.js?v=20261029102247"></script>
+<script src="studio.js?v=20261029102247"></script>
+<script src="host.js?v=20261029102247"></script>
 </body>
 </html>

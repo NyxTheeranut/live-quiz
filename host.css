@@ -262,3 +262,16 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .placed:empty { display: none; }
 .placed li { padding: 8px 20px; border-radius: var(--r-pill); background: var(--surface-2); font: 600 1.15rem var(--font-body); animation: pop .45s var(--spring) both; }
 .placed li b { font-family: var(--font-display); }
+
+/* ================= Word cloud view (size = votes) ================= */
+.segs { display: flex; flex-wrap: wrap; gap: 12px; }
+.cloud { position: relative; height: clamp(340px, 56vh, 480px); margin-top: 18px; }
+.cloud.empty { height: 0; margin: 0; }
+.cw { position: absolute; left: 0; top: 0; transform-origin: 0 0; white-space: nowrap; transition: transform .9s var(--spring), opacity .4s; will-change: transform; }
+.cw.off { opacity: 0; pointer-events: none; }
+.cw .in { display: block; font: 800 40px/1.2 var(--font-display); color: var(--tint); text-shadow: 0 2px 18px rgba(0, 0, 0, .35); animation: bob 4.2s ease-in-out var(--bd, 0s) infinite; }
+.cw.lead .in { text-shadow: 0 0 30px var(--tint); }
+.fogcloud { filter: blur(6px); }                       /* fake blobs: no names, sizes wander on their own */
+.fogcloud .blk { display: block; height: 32px; border-radius: var(--r-pill); background: var(--tint); opacity: .8; }
+
+.fogcloud .cw { transition: transform .9s var(--ease), opacity .4s; }   /* no spring overshoot, so the blobs do not pile up */

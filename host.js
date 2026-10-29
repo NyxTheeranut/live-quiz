@@ -13,8 +13,9 @@ const show = id => {
 };
 const restart = (el, name) => { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = name || ''; };
 
-const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true };
+const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true, viewStyle: 'bars' };
 const cfg = () => ({ ...DEFAULT_CFG, ...((G && G.settings) || {}) });
+let viewStyle = 'bars', lastDist = {}, lastAnswered = 0;
 let qEnd = 0, fogged = false, fogIntensity = 0, fogMode = 'normal', fogTxtT = null;
 let G = null;            // { game_id, pin, host_token, kind, title, questions, qi }
 let channel = null, poll = null, tick = null, revealing = false, lastTally = '', lastTallyAt = 0, view = 'person';
@@ -197,7 +198,7 @@ async function askQuestion(i) {
   $('qbar').style.transform = 'scaleX(0)';
   $('voteLive').classList.toggle('hide', !vote);
   $('quizLive').classList.toggle('hide', vote);
-  if (vote) { resetChart(); paintVote({}, 0); }
+  if (vote) { viewStyle = cfg().viewStyle || 'bars'; resetChart(); showLive(); paintVote({}, 0); }
   else {
     $('qchoices').className = 'tiles' + (q.choices.length > 4 ? ' many' : '');
     $('qchoices').innerHTML = q.choices.map((c, k) => c
@@ -256,7 +257,7 @@ const FOG_LINES = {
   near: ['ใกล้ครบแล้ว!', 'ใครยังไม่โหวตรีบเลย!', 'อีกไม่กี่คนเท่านั้น...'],
   last: ['ใกล้หมดเวลาแล้ว!', 'หัวใจจะวาย!', 'ลุ้นสุดตัว!']
 };
-const FOG = { rows: [], timer: 0, seen: 0 };
+const FOG = { rows: [], timer: 0, seen: 0, style: 'bars' };
 
 function fogLayout() {
   const sorted = [...FOG.rows].sort((a, b) => b.v - a.v);
@@ -273,7 +274,7 @@ function fogTick() {
     R.v += (Math.random() - .5) * vol * 2 + (.55 - R.v) * .05 + R.kick; R.kick = 0;
     R.v = Math.max(.12, Math.min(1, R.v));
   });
-  fogLayout();
+  FOG.style === 'cloud' ? fogCloudLayout() : fogLayout();
   FOG.timer = setTimeout(fogTick, reduceMotion ? 1600 : 900 - 480 * fogIntensity);
 }
 function fogJolt(n) {                                    // มีคนโหวตเพิ่ม: ดันแถวสุ่มให้พุ่งขึ้น
@@ -282,19 +283,34 @@ function fogJolt(n) {                                    // มีคนโห�
 }
 function enterFog(answered = 0) {
   fogged = true; fogMode = 'normal'; fogIntensity = 0; FOG.seen = answered;
-  $('chart').classList.add('hide'); $('chartEmpty').classList.add('hide'); $('viewSeg').classList.add('hide');
+  showLive(); $('chartEmpty').classList.add('hide');
   $('fog').classList.remove('hide'); restart($('fog'), 'rise .6s var(--ease) both');
-  const n = Math.min(TOPK, G.questions[G.qi].choices.length);
-  $('fogChart').innerHTML = '';
-  FOG.rows = Array.from({ length: n }, (_, i) => {
-    const el = document.createElement('div');
-    el.className = 'crow tint' + (i % 4 + 1);
-    el.innerHTML = `<div class="top"><span class="rk"></span><span class="nm"><i class="blk" style="width:${90 + Math.round(Math.random() * 170)}px"></i></span><i class="ph-fill ph-crown-simple lead-ico" aria-hidden="true"></i><b class="ct">?</b></div><div class="bar"><i></i></div>`;
-    $('fogChart').appendChild(el);
-    return { el, rk: el.querySelector('.rk'), bar: el.querySelector('.bar i'), v: .25 + Math.random() * .7, kick: 0 };
-  });
-  $('fogChart').style.height = n * ROW + 'px';
-  fogLayout();
+  FOG.style = viewStyle;
+  $('fogChart').classList.toggle('hide', viewStyle === 'cloud'); $('fogCloud').classList.toggle('hide', viewStyle !== 'cloud');
+  if (viewStyle === 'cloud') {                         // กลุ่มคำปลอม: ก้อนเบลอไม่มีชื่อ ขนาดแกว่งและสลับที่กันเอง
+    const n = Math.min(12, G.questions[G.qi].choices.length);
+    $('fogCloud').innerHTML = '';
+    FOG.rows = Array.from({ length: n }, (_, i) => {
+      const el = document.createElement('div');
+      el.className = 'cw tint' + (i % 4 + 1);
+      el.innerHTML = `<span class="in" style="--bd:${-(Math.random() * 4).toFixed(2)}s"><i class="blk" style="width:${80 + Math.round(Math.random() * 130)}px"></i></span>`;
+      $('fogCloud').appendChild(el);
+      return { el, v: .2 + Math.random() * .75, kick: 0, s: 1 };
+    });
+    fogCloudLayout();
+  } else {
+    const n = Math.min(TOPK, G.questions[G.qi].choices.length);
+    $('fogChart').innerHTML = '';
+    FOG.rows = Array.from({ length: n }, (_, i) => {
+      const el = document.createElement('div');
+      el.className = 'crow tint' + (i % 4 + 1);
+      el.innerHTML = `<div class="top"><span class="rk"></span><span class="nm"><i class="blk" style="width:${90 + Math.round(Math.random() * 170)}px"></i></span><i class="ph-fill ph-crown-simple lead-ico" aria-hidden="true"></i><b class="ct">?</b></div><div class="bar"><i></i></div>`;
+      $('fogChart').appendChild(el);
+      return { el, rk: el.querySelector('.rk'), bar: el.querySelector('.bar i'), v: .25 + Math.random() * .7, kick: 0 };
+    });
+    $('fogChart').style.height = n * ROW + 'px';
+    fogLayout();
+  }
   clearTimeout(FOG.timer); FOG.timer = setTimeout(fogTick, 700);
   $('fogText').textContent = FOG_LINES.normal[0];
   sfx.fog();
@@ -316,14 +332,74 @@ function updateFog(answered, players) {
 function leaveFog() {
   if (!fogged) return;
   fogged = false; clearTimeout(FOG.timer); clearInterval(fogTxtT);
-  $('fog').classList.add('hide'); $('chart').classList.remove('hide'); $('viewSeg').classList.remove('hide');
+  $('fog').classList.add('hide'); showLive();
 }
 
 // ---------- กราฟคะแนนสด (แถวเลื่อนขึ้นลงตามอันดับ) ----------
 const ROW = 76, TOPK = 6;
 const rows = new Map();
-function resetChart() { rows.clear(); $('chart').innerHTML = ''; }
-document.querySelectorAll('input[name=view]').forEach(r => r.onchange = () => { view = r.value; resetChart(); });
+function resetChart() { rows.clear(); $('chart').innerHTML = ''; cloudWords.clear(); $('cloud').innerHTML = ''; }
+// แสดงเฉพาะมุมมองที่เลือก (แท่งหรือกลุ่มคำ) และซ่อนทั้งหมดตอนมีหมอก
+function showLive() {
+  const cloud = viewStyle === 'cloud';
+  $('chart').classList.toggle('hide', cloud || fogged);
+  $('cloud').classList.toggle('hide', !cloud || fogged);
+  $('viewSeg').classList.toggle('hide', fogged);
+}
+document.querySelectorAll('input[name=view]').forEach(r => r.onchange = () => { view = r.value; resetChart(); paintVote(lastDist, lastAnswered); });
+window.addEventListener('resize', () => { if (G && G.kind === 'vote' && !$('h-q').classList.contains('hide')) fogged ? fogCloudLayout() : paintVote(lastDist, lastAnswered); });
+
+// ---------- กลุ่มคำ: วางคำแบบเกลียว ขนาดตามคะแนน แล้วให้ลอยไปที่ใหม่เมื่อคะแนนเปลี่ยน ----------
+const cloudWords = new Map();
+function cloudLayout(items, box) {                       // items: [{el, s}] เรียงจากตัวใหญ่ไปเล็ก
+  const W = box.clientWidth, H = box.clientHeight;
+  if (!W || !H) return;
+  const cx = W / 2, cy = H / 2, placed = [];
+  items.sort((a, b) => b.s - a.s).forEach(it => {
+    const bw = it.el.offsetWidth, bh = it.el.offsetHeight;
+    let s = it.s, spot = null, tries = 0;
+    while (!spot && tries < 6) {
+      const w = bw * s + 22, h = bh * s + 6;
+      for (let t = 0; t < 500 && !spot; t += .3) {
+        const r = 5.5 * t, x = cx + r * Math.cos(t) * 1.7 - w / 2, y = cy + r * Math.sin(t) * .85 - h / 2;
+        if (x < 0 || y < 0 || x + w > W || y + h > H) continue;
+        if (placed.every(p => x + w <= p.x || p.x + p.w <= x || y + h <= p.y || p.y + p.h <= y)) spot = { x, y, w, h };
+      }
+      if (!spot) { s *= .85; tries++; }                  // ไม่มีที่พอ: ย่อลงแล้วลองใหม่
+    }
+    if (!spot) { it.el.classList.add('off'); return; }
+    placed.push(spot);
+    it.el.classList.remove('off');
+    it.el.style.transform = `translate(${(spot.x + 11).toFixed(1)}px, ${(spot.y + 3).toFixed(1)}px) scale(${s.toFixed(3)})`;
+  });
+}
+function fogCloudLayout() {
+  FOG.rows.forEach(R => { R.s = .55 + 2.1 * Math.sqrt(R.v); });
+  cloudLayout(FOG.rows, $('fogCloud'));
+}
+function paintCloud(entries, answered) {
+  if (fogged) return;                                    // ตอนมีหมอกใช้กลุ่มคำปลอมแทน
+  const box = $('cloud'), max = Math.max(1, ...entries.map(e => e.count)), items = [];
+  entries.forEach(e => {
+    let w = cloudWords.get(e.key);
+    if (!w) {
+      const el = document.createElement('div');
+      el.className = 'cw off tint' + e.tint;
+      el.innerHTML = '<span class="in"></span>';
+      el.firstChild.textContent = e.label; el.firstChild.style.setProperty('--bd', -(Math.random() * 4).toFixed(2) + 's');
+      box.appendChild(el); w = { el, count: 0 }; cloudWords.set(e.key, w);
+    }
+    if (e.count > w.count && w.count > 0) sfx.pop();
+    w.count = e.count;
+    w.el.setAttribute('aria-label', `${e.label} ${e.count} คะแนน`);
+    if (e.count > 0) items.push({ el: w.el, s: .6 + 2.3 * Math.sqrt(e.count / max), top: e.count === max });
+    else w.el.classList.add('off');
+  });
+  box.classList.toggle('empty', !items.length);
+  cloudLayout(items, box);
+  items.forEach(it => it.el.classList.toggle('lead', it.top));
+  $('chartEmpty').classList.toggle('hide', answered > 0);
+}
 
 function entriesFor(dist) {
   const q = G.questions[G.qi];
@@ -336,6 +412,8 @@ function entriesFor(dist) {
 }
 
 function paintVote(dist, answered) {
+  lastDist = dist; lastAnswered = answered;
+  if (viewStyle === 'cloud') return paintCloud(entriesFor(dist), answered);
   const list = entriesFor(dist).sort((a, b) => b.count - a.count);
   const max = Math.max(1, list[0] ? list[0].count : 0);
   let shown = 0;

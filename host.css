@@ -224,7 +224,7 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 
 /* ================= Suspense fog: the ranking chart, blurred, nameless and restless ================= */
 .fog { position: relative; margin-top: 18px; animation: rise .6s var(--ease) both; }
-.fogchart { filter: blur(6px); }                       /* rows are fake: no names, no real scores */
+.fogchart { filter: blur(2.5px); }                       /* rows are fake: no names, no real scores */
 .fogchart .nm .blk { display: inline-block; height: 1.25rem; border-radius: var(--r-pill); background: var(--text); opacity: .5; vertical-align: middle; }
 .fogchart .ct { opacity: .7; }
 .veil { position: absolute; inset: -30px -20px; z-index: 2; pointer-events: none; }
@@ -271,7 +271,25 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .cw.off { opacity: 0; pointer-events: none; }
 .cw .in { display: block; font: 800 40px/1.2 var(--font-display); color: var(--tint); text-shadow: 0 2px 18px rgba(0, 0, 0, .35); animation: bob 4.2s ease-in-out var(--bd, 0s) infinite; }
 .cw.lead .in { text-shadow: 0 0 30px var(--tint); }
-.fogcloud { filter: blur(6px); }                       /* fake blobs: no names, sizes wander on their own */
+.fogcloud { filter: blur(1.2px); }                       /* fake blobs: no names, sizes wander on their own */
 .fogcloud .blk { display: block; height: 32px; border-radius: var(--r-pill); background: var(--tint); opacity: .8; }
 
 .fogcloud .cw { transition: transform .9s var(--ease), opacity .4s; }   /* no spring overshoot, so the blobs do not pile up */
+
+/* ================= Censored names: real scores, unreadable names ================= */
+.smudge { display: inline-block; filter: blur(.22em); opacity: .92; user-select: none; }
+#chart.censor .nm { filter: blur(.22em); user-select: none; }
+#cloud.censor .cw .in { filter: blur(.14em); user-select: none; }   /* big words keep a word-like silhouette */
+.cw .smudge { filter: blur(.14em); }
+#chart.censor .gp { filter: blur(.32em); user-select: none; }
+.censornote { display: flex; align-items: center; justify-content: center; gap: 10px; width: fit-content; margin: 14px auto 0; padding: 8px 20px; border-radius: var(--r-pill); background: var(--surface-2); border: 2px solid var(--c3); font: 700 1.1rem var(--font-display); }
+.censornote i { color: var(--c3); font-size: 1.4rem; }
+
+/* ================= Everyone has voted: timer frozen, one big centred button ================= */
+.timer.frozen { color: var(--c4); }
+.tbar.frozen i { background: var(--c4); }
+.tools.allin { justify-content: center; }
+.tools.allin .segs { display: none; }
+#closeBtn.allin { position: relative; min-height: 72px; padding: 0 52px; font-size: 1.7rem; animation: pop .5s var(--spring) both; }
+#closeBtn.allin::after { content: ""; position: absolute; inset: -4px; border-radius: inherit; border: 3px solid var(--accent); pointer-events: none; animation: ring 1.6s ease-out .5s infinite; }   /* the ring pulses, the button itself stays still */
+@keyframes ring { from { transform: scale(1); opacity: .85; } to { transform: scale(1.18, 1.35); opacity: 0; } }

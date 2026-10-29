@@ -9,7 +9,7 @@ const EMOJI = ['😭', '🗣️', '👑', '🦥', '🔥', '👻', '🤥', '💃'
 const LEAD_EMOJI = /^\p{Extended_Pictographic}[\u{FE0F}\u{200D}\p{Extended_Pictographic}]*\s*/u;
 const DEFAULT_TITLE = { vote: 'ประกาศรางวัลตัวตึงแห่งปี', quiz: 'ควิซวันศุกร์' };
 const DRAFT_KEY = 'quiz-draft';
-const DEFAULT_SET = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true, viewStyle: 'bars' };
+const DEFAULT_SET = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true, viewStyle: 'bars', fogKind: 'mock' };
 
 const SAMPLE = {
   awards: [
@@ -186,6 +186,7 @@ function setKind(k) {
 function renderSettings() {
   const r = document.querySelector(`input[name=hideAt][value="${S.settings.hideAt}"]`); if (r) r.checked = true;
   $('setCeremony').checked = !!S.settings.ceremony; $('setPhoneLive').checked = !!S.settings.phoneLive;
+  const fk = document.querySelector(`input[name=fogKind][value="${S.settings.fogKind || 'mock'}"]`); if (fk) fk.checked = true;
   const vs = document.querySelector(`input[name=viewStyle][value="${S.settings.viewStyle || 'bars'}"]`); if (vs) vs.checked = true;
   $('setPreview').checked = S.settings.preview !== false; $('setMusic').checked = S.settings.music !== false; $('setHideText').checked = !!S.settings.hideText;
   document.querySelectorAll('#settingsCard .voteOnly').forEach(e => e.classList.toggle('hide', S.kind !== 'vote'));
@@ -194,6 +195,7 @@ function renderSettings() {
 document.querySelectorAll('input[name=hideAt]').forEach(r => r.onchange = () => { S.settings.hideAt = r.value; save(); });
 $('setCeremony').onchange = () => { S.settings.ceremony = $('setCeremony').checked; save(); };
 $('setPhoneLive').onchange = () => { S.settings.phoneLive = $('setPhoneLive').checked; save(); };
+document.querySelectorAll('input[name=fogKind]').forEach(r => r.onchange = () => { S.settings.fogKind = r.value; save(); });
 document.querySelectorAll('input[name=viewStyle]').forEach(r => r.onchange = () => { S.settings.viewStyle = r.value; save(); });
 $('setMusic').onchange = () => { S.settings.music = $('setMusic').checked; save(); };
 $('setPreview').onchange = () => { S.settings.preview = $('setPreview').checked; save(); };

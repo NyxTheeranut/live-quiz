@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029102247">
-<link rel="stylesheet" href="host.css?v=20261029102247">
+<link rel="stylesheet" href="theme.css?v=20261029104334">
+<link rel="stylesheet" href="host.css?v=20261029104334">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029102247"></script>
+<script src="config.js?v=20261029104334"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -94,6 +94,14 @@
             <label><input type="radio" name="hideAt" value="30"><span>30%</span></label>
             <label><input type="radio" name="hideAt" value="50" checked><span>50%</span></label>
             <label><input type="radio" name="hideAt" value="70"><span>70%</span></label>
+          </div>
+        </fieldset>
+        <fieldset class="setrow" style="margin-top:6px">
+          <legend>เมื่อถึงเกณฑ์ข้างบนแล้ว</legend>
+          <p class="hint">เลือกว่าจะปิดบังแบบไหน ชื่อที่เบลอจะมองไม่ออกว่าเป็นใคร</p>
+          <div class="chipset">
+            <label><input type="radio" name="fogKind" value="mock" checked><span>ซ่อนทั้งหมด (กราฟปลอมขยับให้ลุ้น)</span></label>
+            <label><input type="radio" name="fogKind" value="censor"><span>เห็นคะแนนจริง แต่เบลอชื่อ</span></label>
           </div>
         </fieldset>
         <fieldset class="setrow" style="margin-top:6px">
@@ -186,8 +194,9 @@
           <label><input type="radio" name="view" value="group"><span>รายกลุ่ม</span></label>
         </div>
       </div>
-      <button class="btn" id="closeBtn"><i class="ph-fill ph-trophy" aria-hidden="true"></i>ปิดโหวตและประกาศผล</button>
+      <button class="btn" id="closeBtn"><i class="ph-fill ph-trophy" aria-hidden="true"></i><span id="closeLabel">ปิดโหวตและประกาศผล</span></button>
     </div>
+    <div id="censorNote" class="censornote hide" role="status"><i class="ph-bold ph-eye-slash" aria-hidden="true"></i><span id="censorText">ชื่อถูกปิดไว้ เห็นแค่คะแนน</span></div>
     <div id="fog" class="fog hide">
       <div id="fogChart" class="chart fogchart" aria-hidden="true"></div>
       <div id="fogCloud" class="cloud fogcloud hide" aria-hidden="true"></div>
@@ -283,10 +292,10 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261029102247"></script>
-<script src="fx.js?v=20261029102247"></script>
-<script src="sound.js?v=20261029102247"></script>
-<script src="studio.js?v=20261029102247"></script>
-<script src="host.js?v=20261029102247"></script>
+<script src="ui.js?v=20261029104334"></script>
+<script src="fx.js?v=20261029104334"></script>
+<script src="sound.js?v=20261029104334"></script>
+<script src="studio.js?v=20261029104334"></script>
+<script src="host.js?v=20261029104334"></script>
 </body>
 </html>

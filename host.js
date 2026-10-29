@@ -13,9 +13,10 @@ const show = id => {
 };
 const restart = (el, name) => { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = name || ''; };
 
-const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true, viewStyle: 'bars' };
+const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true, viewStyle: 'bars', fogKind: 'mock' };
 const cfg = () => ({ ...DEFAULT_CFG, ...((G && G.settings) || {}) });
 let viewStyle = 'bars', lastDist = {}, lastAnswered = 0;
+let allIn = false, frozenLeft = 0, censored = false;
 let qEnd = 0, fogged = false, fogIntensity = 0, fogMode = 'normal', fogTxtT = null;
 let G = null;            // { game_id, pin, host_token, kind, title, questions, qi }
 let channel = null, poll = null, tick = null, revealing = false, lastTally = '', lastTallyAt = 0, view = 'person';
@@ -183,7 +184,7 @@ async function intro(i) {
 
 // ---------- 3. คำถาม / โหวต ----------
 async function askQuestion(i) {
-  stopTimers(); revealing = false; lastTally = ''; lastTallyAt = 0; leaveFog();
+  stopTimers(); revealing = false; lastTally = ''; lastTallyAt = 0; leaveFog(); resetAllIn();
   const q = G.questions[i], vote = G.kind === 'vote';
   const { error } = await host('set_phase', { p_phase: 'question', p_q: i });
   if (error) return UI.toast(error.message);
@@ -206,21 +207,11 @@ async function askQuestion(i) {
   }
   show('h-q');
   Sound.music(musicOn(), .24);
-  if (vote && cfg().hideAt === '0') enterFog();
+  if (vote && cfg().hideAt === '0') cfg().fogKind === 'censor' ? enterCensor() : enterFog();
 
   const bar = $('tbar'); bar.classList.remove('hide', 'low');
   bar.style.setProperty('--dur', q.duration + 's'); restart(bar.firstElementChild);
-  const end = Date.now() + q.duration * 1000; qEnd = end; let lastS = -1;
-  tick = setInterval(() => {
-    const s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-    $('qtimer').textContent = s;
-    $('qtimer').classList.toggle('low', s <= 10);
-    bar.classList.toggle('low', s <= 10);
-    if (s !== lastS && s <= 5 && s > 0) sfx.tick();
-    lastS = s;
-    Sound.setIntensity(.24 + .66 * (1 - Math.max(0, end - Date.now()) / (q.duration * 1000)) + (s <= 10 ? .1 : 0));
-    if (s === 0) { clearInterval(tick); setTimeout(reveal, 1200); }   // รอคำตอบที่ยังอยู่บนเครือข่าย
-  }, 250);
+  qEnd = Date.now() + q.duration * 1000; runTick(q);
   poll = setInterval(async () => {
     const { data } = await host('host_stats', { p_idx: i });
     if (!data) return;
@@ -229,12 +220,54 @@ async function askQuestion(i) {
     $('qbar').style.transform = `scaleX(${data.players ? Math.min(1, data.answered / data.players) : 0})`;
     if (vote) {
       paintVote(data.dist, data.answered); broadcastTally(i, data);
+      const everyone = data.players > 0 && data.answered >= data.players;
+      setAllIn(everyone);                                              // ครบทุกคน: หยุดเวลา ปุ่มเหลือแค่ "ประกาศผล" ตรงกลาง
+      if (everyone) $('qans').textContent = 'โหวตครบทุกคนแล้ว';
       const c = cfg();
-      if (!fogged && c.hideAt !== 'off' && data.players > 0 && data.answered / data.players * 100 >= +c.hideAt) enterFog(data.answered);
+      if (!fogged && !censored && c.hideAt !== 'off' && data.players > 0 && data.answered / data.players * 100 >= +c.hideAt) c.fogKind === 'censor' ? enterCensor() : enterFog(data.answered);
       if (fogged) updateFog(data.answered, data.players);
+      if (censored) updateCensor(data.answered, data.players);
     }
     else if (data.players > 0 && data.answered >= data.players) reveal();   // ควิซ: ตอบครบก็เฉลยเลย
   }, 1000);
+}
+// จับเวลาถอยหลัง อ่านเวลาจบจาก qEnd เสมอ เลยหยุดแล้วเดินต่อได้
+function runTick(q) {
+  clearInterval(tick);
+  const bar = $('tbar'); let lastS = -1;
+  tick = setInterval(() => {
+    const left = qEnd - Date.now(), s = Math.max(0, Math.ceil(left / 1000));
+    $('qtimer').textContent = s;
+    $('qtimer').classList.toggle('low', s <= 10);
+    bar.classList.toggle('low', s <= 10);
+    if (s !== lastS && s <= 5 && s > 0) sfx.tick();
+    lastS = s;
+    Sound.setIntensity(.24 + .66 * (1 - Math.max(0, left) / (q.duration * 1000)) + (s <= 10 ? .1 : 0));
+    if (s === 0) { clearInterval(tick); setTimeout(reveal, 1200); }   // รอคำตอบที่ยังอยู่บนเครือข่าย
+  }, 250);
+}
+function resetAllIn() {
+  allIn = false; frozenLeft = 0;
+  $('qtimer').classList.remove('frozen'); $('tbar').classList.remove('frozen'); $('tbar').firstElementChild.style.animationPlayState = '';
+  $('closeBtn').classList.remove('allin'); document.querySelector('#voteLive .tools').classList.remove('allin');
+  $('closeLabel').textContent = 'ปิดโหวตและประกาศผล';
+}
+// ทุกคนโหวตครบ: หยุดเวลา (เปลี่ยนสีเป็นเขียว) และเหลือปุ่ม "ประกาศผล" ปุ่มเดียวตรงกลาง ถ้ามีคนใหม่เข้ามาเพิ่มจะกลับไปนับต่อ
+function setAllIn(on) {
+  if (on === allIn || !G || G.kind !== 'vote') return;
+  allIn = on;
+  const bar = $('tbar');
+  if (on) {
+    frozenLeft = Math.max(0, qEnd - Date.now()); clearInterval(tick);
+    bar.firstElementChild.style.animationPlayState = 'paused';
+    $('qtimer').classList.remove('low'); bar.classList.remove('low'); sfx.go();
+  } else {
+    qEnd = Date.now() + frozenLeft; bar.firstElementChild.style.animationPlayState = '';
+    runTick(G.questions[G.qi]);
+  }
+  $('qtimer').classList.toggle('frozen', on); bar.classList.toggle('frozen', on);
+  $('closeBtn').classList.toggle('allin', on); document.querySelector('#voteLive .tools').classList.toggle('allin', on);
+  $('closeLabel').textContent = on ? 'ประกาศผล' : 'ปิดโหวตและประกาศผล';
 }
 $('revealBtn').onclick = () => reveal();
 $('closeBtn').onclick = () => reveal();
@@ -255,8 +288,10 @@ function broadcastTally(i, data) {
 const FOG_LINES = {
   normal: ['คะแนนถูกซ่อนไว้แล้ว', 'มีคนกำลังนำอยู่...', 'พลิกเกมได้ทุกเมื่อ', 'ใครกันนะที่จะได้มงกุฎ?', 'ห้ามกะพริบตา!'],
   near: ['ใกล้ครบแล้ว!', 'ใครยังไม่โหวตรีบเลย!', 'อีกไม่กี่คนเท่านั้น...'],
-  last: ['ใกล้หมดเวลาแล้ว!', 'หัวใจจะวาย!', 'ลุ้นสุดตัว!']
+  last: ['ใกล้หมดเวลาแล้ว!', 'หัวใจจะวาย!', 'ลุ้นสุดตัว!'],
+  all: ['โหวตครบทุกคนแล้ว!']
 };
+const shuffled = a => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [r[i], r[j]] = [r[j], r[i]]; } return r; };
 const FOG = { rows: [], timer: 0, seen: 0, style: 'bars' };
 
 function fogLayout() {
@@ -288,23 +323,27 @@ function enterFog(answered = 0) {
   FOG.style = viewStyle;
   $('fogChart').classList.toggle('hide', viewStyle === 'cloud'); $('fogCloud').classList.toggle('hide', viewStyle !== 'cloud');
   if (viewStyle === 'cloud') {                         // กลุ่มคำปลอม: ก้อนเบลอไม่มีชื่อ ขนาดแกว่งและสลับที่กันเอง
-    const n = Math.min(12, G.questions[G.qi].choices.length);
+    const decoys = shuffled(G.questions[G.qi].choices);       // ชื่อหลอกสุ่มคนละที่กับคะแนนจริง และถูกเบลอจนอ่านไม่ออก
+    const n = Math.min(12, decoys.length);
     $('fogCloud').innerHTML = '';
     FOG.rows = Array.from({ length: n }, (_, i) => {
       const el = document.createElement('div');
       el.className = 'cw tint' + (i % 4 + 1);
-      el.innerHTML = `<span class="in" style="--bd:${-(Math.random() * 4).toFixed(2)}s"><i class="blk" style="width:${80 + Math.round(Math.random() * 130)}px"></i></span>`;
+      el.innerHTML = `<span class="in" style="--bd:${-(Math.random() * 4).toFixed(2)}s"><span class="smudge"></span></span>`;
+      el.querySelector('.smudge').textContent = decoys[i];
       $('fogCloud').appendChild(el);
       return { el, v: .2 + Math.random() * .75, kick: 0, s: 1 };
     });
     fogCloudLayout();
   } else {
-    const n = Math.min(TOPK, G.questions[G.qi].choices.length);
+    const decoys = shuffled(G.questions[G.qi].choices);
+    const n = Math.min(TOPK, decoys.length);
     $('fogChart').innerHTML = '';
     FOG.rows = Array.from({ length: n }, (_, i) => {
       const el = document.createElement('div');
       el.className = 'crow tint' + (i % 4 + 1);
-      el.innerHTML = `<div class="top"><span class="rk"></span><span class="nm"><i class="blk" style="width:${90 + Math.round(Math.random() * 170)}px"></i></span><i class="ph-fill ph-crown-simple lead-ico" aria-hidden="true"></i><b class="ct">?</b></div><div class="bar"><i></i></div>`;
+      el.innerHTML = `<div class="top"><span class="rk"></span><span class="nm"><span class="smudge"></span></span><i class="ph-fill ph-crown-simple lead-ico" aria-hidden="true"></i><b class="ct">?</b></div><div class="bar"><i></i></div>`;
+      el.querySelector('.smudge').textContent = decoys[i];
       $('fogChart').appendChild(el);
       return { el, rk: el.querySelector('.rk'), bar: el.querySelector('.bar i'), v: .25 + Math.random() * .7, kick: 0 };
     });
@@ -321,15 +360,26 @@ function enterFog(answered = 0) {
   }, 3200);
 }
 function updateFog(answered, players) {
-  const pct = players ? Math.min(1, answered / players) : 0, left = Math.max(0, (qEnd - Date.now()) / 1000);
+  const pct = players ? Math.min(1, answered / players) : 0, left = allIn ? frozenLeft / 1000 : Math.max(0, (qEnd - Date.now()) / 1000);
   fogIntensity = Math.max(pct, 1 - left / G.questions[G.qi].duration);
   $('fogSub').textContent = `โหวตแล้ว ${answered} จาก ${players} คน`;
   if (answered > FOG.seen) fogJolt(answered - FOG.seen);
   FOG.seen = answered;
-  const mode = left <= 10 ? 'last' : pct >= .9 ? 'near' : 'normal';
+  const mode = allIn ? 'all' : left <= 10 ? 'last' : pct >= .9 ? 'near' : 'normal';
   if (mode !== fogMode) { fogMode = mode; $('fogText').textContent = FOG_LINES[mode][0]; restart($('fogText'), 'rise .5s var(--ease) both'); }
 }
+// ---------- โหมดเบลอชื่อ: เห็นคะแนนจริงทุกอย่าง แต่ชื่อถูกเบลอจนอ่านไม่ออก ----------
+function enterCensor() {
+  censored = true;
+  $('chart').classList.add('censor'); $('cloud').classList.add('censor');
+  $('censorNote').classList.remove('hide'); restart($('censorNote'), 'pop .45s var(--spring) both');
+  sfx.fog();
+}
+function updateCensor(answered, players) {
+  $('censorText').textContent = allIn ? 'โหวตครบทุกคนแล้ว!' : `ชื่อถูกปิดไว้ เห็นแค่คะแนน (โหวตแล้ว ${answered} จาก ${players} คน)`;
+}
 function leaveFog() {
+  if (censored) { censored = false; $('chart').classList.remove('censor'); $('cloud').classList.remove('censor'); $('censorNote').classList.add('hide'); }
   if (!fogged) return;
   fogged = false; clearTimeout(FOG.timer); clearInterval(fogTxtT);
   $('fog').classList.add('hide'); showLive();

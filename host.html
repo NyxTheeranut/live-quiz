@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029122354">
-<link rel="stylesheet" href="host.css?v=20261029122354">
+<link rel="stylesheet" href="theme.css?v=20261029133413">
+<link rel="stylesheet" href="host.css?v=20261029133413">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029122354"></script>
+<script src="config.js?v=20261029133413"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -72,8 +72,13 @@
     </div>
     <p id="setupErr" class="err" role="alert"></p>
 
-    <div id="settingsCard" class="card settings">
-      <h2 class="sethead"><i class="ph-fill ph-lightning" aria-hidden="true"></i>ตั้งค่าเกม</h2>
+    <details id="settingsCard" class="card settings" open>
+      <summary class="setsum">
+        <h2 class="sethead"><i class="ph-fill ph-lightning" aria-hidden="true"></i>ตั้งค่าเกม</h2>
+        <span class="setpreview" id="settingsSummary"></span>
+        <i class="ph-bold ph-caret-down car" aria-hidden="true"></i>
+      </summary>
+      <div class="setbody">
       <label class="switchrow">
         <input type="checkbox" role="switch" id="setPreview">
         <span class="sw" aria-hidden="true"></span>
@@ -130,7 +135,8 @@
           <span><b>ให้ผู้เล่นเห็นอันดับสดบนมือถือ</b><small>ปิดไว้ = ผู้เล่นเห็นแค่จำนวนเพื่อนที่โหวตแล้ว ไม่เห็นว่าใครนำ</small></span>
         </label>
       </div>
-    </div>
+      </div>
+    </details>
 
     <div id="voteStudio" class="cols">
       <div>
@@ -282,7 +288,26 @@
     <label for="bulkText" class="sr-only">ข้อมูลทั้งหมด</label>
     <textarea id="bulkText" rows="13" spellcheck="false" autocomplete="off"></textarea>
     <p id="bulkPreview" class="bulkprev" role="status"></p>
-    <details class="bulkex"><summary>ดูตัวอย่างรูปแบบที่วางได้</summary><pre id="bulkExample"></pre></details>
+    <div class="bulkex">
+      <div class="exhead"><b>ตัวอย่าง (คัดลอกไปแก้ได้เลย)</b>
+        <span class="exbtns">
+          <button type="button" class="btn ghost small" id="exCopy"><i class="ph-bold ph-copy" aria-hidden="true"></i><span>คัดลอกตัวอย่าง</span></button>
+          <button type="button" class="btn small" id="exUse"><i class="ph-bold ph-clipboard-text" aria-hidden="true"></i>ใส่ตัวอย่างในกล่อง</button>
+        </span>
+      </div>
+      <pre id="bulkExample" tabindex="0"></pre>
+      <ul id="bulkTips" class="bulktips"></ul>
+    </div>
+    <details class="bulkwhy" open>
+      <summary>ทำไมถึงเขียนแบบนี้</summary>
+      <ul id="bulkWhy" class="bulkwhylist"></ul>
+    </details>
+    <details class="bulkai">
+      <summary>ให้ AI ช่วยจัดรูปแบบให้ (ChatGPT, Claude, Gemini)</summary>
+      <p class="hint">มีรายการอยู่แล้วแต่หน้าตาไม่ตรง? คัดลอกคำสั่งนี้ไปวางในแชต AI พร้อมแปะรายการของคุณ แล้วเอาคำตอบกลับมาวางในกล่องด้านบน</p>
+      <pre id="bulkAi" tabindex="0"></pre>
+      <button type="button" class="btn ghost small" id="aiCopy"><i class="ph-bold ph-copy" aria-hidden="true"></i><span>คัดลอกคำสั่ง</span></button>
+    </details>
     <div class="chipset" role="radiogroup" aria-label="วิธีนำเข้า" style="margin-top:12px">
       <label><input type="radio" name="bulkMode" value="replace" checked><span>แทนที่ของเดิม</span></label>
       <label><input type="radio" name="bulkMode" value="append"><span>เพิ่มต่อท้าย</span></label>
@@ -335,10 +360,10 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261029122354"></script>
-<script src="fx.js?v=20261029122354"></script>
-<script src="sound.js?v=20261029122354"></script>
-<script src="studio.js?v=20261029122354"></script>
-<script src="host.js?v=20261029122354"></script>
+<script src="ui.js?v=20261029133413"></script>
+<script src="fx.js?v=20261029133413"></script>
+<script src="sound.js?v=20261029133413"></script>
+<script src="studio.js?v=20261029133413"></script>
+<script src="host.js?v=20261029133413"></script>
 </body>
 </html>

@@ -41,7 +41,7 @@ let S = (() => {
 })();
 S.settings = { ...DEFAULT_SET, ...(S.settings || {}) };
 let saveT = null;
-const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(S)); } catch (e) {} }, 300); };
+const save = () => { updateSettingsSummary(); clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(S)); } catch (e) {} }, 300); };
 
 // ---------- อ่านข้อความที่วางมาจากชีต (แท็บ) หรือ CSV ----------
 function parseRows(text) {
@@ -191,6 +191,7 @@ function renderSettings() {
   $('setPreview').checked = S.settings.preview !== false; $('setMusic').checked = S.settings.music !== false; $('setHideText').checked = !!S.settings.hideText;
   document.querySelectorAll('#settingsCard .voteOnly').forEach(e => e.classList.toggle('hide', S.kind !== 'vote'));
   document.querySelectorAll('#settingsCard .quizOnly').forEach(e => e.classList.toggle('hide', S.kind !== 'quiz'));
+  updateSettingsSummary();
 }
 document.querySelectorAll('input[name=hideAt]').forEach(r => r.onchange = () => { S.settings.hideAt = r.value; save(); });
 $('setCeremony').onchange = () => { S.settings.ceremony = $('setCeremony').checked; save(); };
@@ -200,6 +201,25 @@ document.querySelectorAll('input[name=viewStyle]').forEach(r => r.onchange = () 
 $('setMusic').onchange = () => { S.settings.music = $('setMusic').checked; save(); };
 $('setPreview').onchange = () => { S.settings.preview = $('setPreview').checked; save(); };
 $('setHideText').onchange = () => { S.settings.hideText = $('setHideText').checked; save(); };
+
+// สรุปค่าที่ตั้งไว้ในบรรทัดเดียว (โชว์ตอนพับเก็บ)
+function settingsSummary() {
+  const c = S.settings, on = [];
+  const hide = c.hideAt === 'off' ? 'ไม่ซ่อนอันดับ' : c.hideAt === '0' ? 'ซ่อนอันดับตั้งแต่เริ่ม' : `ซ่อนอันดับที่ ${c.hideAt}%`;
+  if (S.kind === 'vote') {
+    on.push(hide);
+    if (c.hideAt !== 'off') on.push(c.fogKind === 'censor' ? 'เห็นคะแนนแต่เบลอชื่อ' : 'กราฟปลอมขยับให้ลุ้น');
+    on.push(c.viewStyle === 'cloud' ? 'แสดงเป็นกลุ่มคำ' : 'แสดงเป็นกราฟแท่ง');
+    if (c.ceremony) on.push('พิธีรับรางวัล');
+    if (c.phoneLive) on.push('ผู้เล่นเห็นอันดับสด');
+  } else if (c.hideText) on.push('มือถือเห็นแค่สีกับรูปร่าง');
+  on.push(c.preview !== false ? 'แสดงโจทย์ก่อน' : 'เริ่มทันที');
+  on.push(c.music !== false ? 'เปิดเพลง' : 'ปิดเพลง');
+  return on.join(', ');
+}
+function updateSettingsSummary() { $('settingsSummary').textContent = settingsSummary(); }
+try { if (localStorage.getItem('quiz-settings-open') === '0') $('settingsCard').open = false; } catch (e) {}
+$('settingsCard').addEventListener('toggle', () => { try { localStorage.setItem('quiz-settings-open', $('settingsCard').open ? '1' : '0'); } catch (e) {} });
 
 function renderAll() {
   renderSettings();
@@ -452,7 +472,10 @@ function bulkParseVote(text) {
     if (HDR.awards.test(l)) { mode = 'awards'; continue; }
     if (HDR.nominees.test(l)) { mode = 'nominees'; cur = ''; continue; }
     if (HDR.quiz.test(l)) { mode = 'skip'; continue; }
-    if (mode === 'awards') { const a = parseAwardLine(l); if (a.title) awards.push(a); }
+    if (mode === 'awards') {
+      const a = parseAwardLine(l), head = a.title.replace(/^[^\p{L}\p{N}]+/u, '').trim();
+      if (a.title && !/^(?:ชื่อ)?รางวัล$|^awards?$/i.test(head)) awards.push(a);          // ข้ามแถวหัวตาราง
+    }
     else if (mode === 'nominees') {
       const c = l.search(/[:：]/);
       if (c > 0) {                                                  // ทีมขาย: ก้อง, มิ้นท์   หรือ  ทีมขาย:  (แล้วตามด้วยชื่อทีละบรรทัด)
@@ -500,16 +523,38 @@ const BULK = {
     hint: 'พิมพ์หรือวางทีเดียวทั้งหมด ใช้หัวข้อ "รางวัล" กับ "ผู้เข้าชิง" แล้วตามด้วยรายการ ระบบแยกให้เอง',
     example: `รางวัล
 😭 ขี้แงแห่งปี | น้ำตาไหลง่ายกว่าน้ำประปา
-🗣️ ปากแจ๋วแห่งปี | เรื่องงานเงียบ แต่เรื่องเมาท์ไม่เคยพัก | 60 | 3
-👑 เจ้าแม่ดราม่า - เรื่องเล่า 1 นาที ขยายได้ 3 ชั่วโมง
+🗣️ ปากแจ๋วแห่งปี | เรื่องเมาท์ไม่เคยพัก | 60 | 3
+👑 เจ้าแม่ดราม่า | เรื่องเล่า 1 นาที ขยายได้ 3 ชั่วโมง
 
 ผู้เข้าชิง
 ทีมขาย: ก้อง, มิ้นท์, บอล
 ทีมซัพพอร์ต: ปอ, แพรว, เจมส์
-พี่ต้น
+พี่ต้น`,
+    tips: [
+      'อยากกำหนดเวลาโหวตหรือให้โหวตได้หลายคน ให้เติมต่อท้ายรางวัล: ชื่อ | คำจำกัดความ | วินาที | โหวตได้สูงสุดกี่คน เช่น  🗣️ ปากแจ๋วแห่งปี | เรื่องเมาท์ไม่เคยพัก | 60 | 3',
+      'ผู้เข้าชิงที่ไม่มีทีม พิมพ์ชื่อทีละบรรทัดได้เลย ไม่ต้องมี "ชื่อทีม:"',
+      'เลขข้อหน้ารางวัล (1. 2.) ใส่หรือไม่ใส่ก็ได้ ระบบตัดให้เอง และวางตารางที่คัดลอกจากเว็บหรือ Word (ชื่อรางวัล แท็บ คำจำกัดความ) ได้เลย'
+    ],
+    why: [
+      ['บรรทัด "รางวัล" และ "ผู้เข้าชิง"', 'เป็นหัวข้อบอกระบบว่าบรรทัดข้างล่างเป็นรางวัลหรือเป็นรายชื่อคน จึงวางทั้งสองอย่างในกล่องเดียวได้'],
+      ['ก่อนขีด | คือชื่อรางวัล (ใส่อีโมจิหน้าชื่อได้)', 'ตำแหน่งแรกของบรรทัดคือชื่อรางวัลเสมอ อีโมจิจะแสดงบนจอใหญ่และมือถือด้วย'],
+      ['หลังขีด | อันแรกคือคำจำกัดความ', 'ข้อความอธิบายว่ารางวัลนี้ให้ใคร ใช้ขีด | คั่นเพราะคำจำกัดความมีเว้นวรรคและคอมมา ถ้าใช้เครื่องหมายอื่นระบบจะตัดผิดที่'],
+      ['ขีด | ที่ 2 และ 3 (ไม่บังคับ)', 'ตัวเลขแรกคือเวลาโหวตเป็นวินาที (60) ตัวเลขที่สองคือโหวตได้กี่คน (3) ไม่ใส่ก็ใช้ค่าปกติ'],
+      ['ก่อนเครื่องหมาย : คือชื่อทีม หลัง : คือรายชื่อคน', 'คั่นชื่อด้วยคอมมา หนึ่งทีมหนึ่งบรรทัด มือถือจะพับเก็บเป็นกลุ่มตามทีมให้หาชื่อง่าย ส่วนคนที่ไม่มีทีมพิมพ์ชื่อบรรทัดเดียวได้เลย (เช่น พี่ต้น)']
+    ],
+    ai: `ช่วยจัดข้อมูลของฉันให้อยู่ในรูปแบบข้อความด้านล่างนี้ ตอบเฉพาะข้อความที่จัดแล้ว ไม่ต้องอธิบายเพิ่ม
 
-(รางวัล: ชื่อ | คำจำกัดความ | วินาที | โหวตได้สูงสุดกี่คน  ใส่แค่ 2 ช่องแรกก็พอ
- ผู้เข้าชิง: ชื่อกลุ่ม: รายชื่อคั่นด้วยคอมมา  หรือพิมพ์ชื่อทีละบรรทัด)`
+รูปแบบ:
+รางวัล
+<อีโมจิ> <ชื่อรางวัล> | <คำจำกัดความสั้น ๆ>
+(หนึ่งรางวัลต่อหนึ่งบรรทัด)
+
+ผู้เข้าชิง
+<ชื่อทีม>: <ชื่อ>, <ชื่อ>, <ชื่อ>
+(หนึ่งทีมต่อหนึ่งบรรทัด)
+
+ข้อมูลของฉัน:
+(วางรายชื่อรางวัลและรายชื่อคนที่นี่)`
   },
   quiz: {
     hint: 'แต่ละข้อคือกลุ่มบรรทัดที่ติดกัน บรรทัดแรกคือคำถาม บรรทัดต่อไปคือตัวเลือก ใส่ * หน้าข้อที่ถูก เว้นบรรทัดก่อนข้อถัดไป',
@@ -524,9 +569,31 @@ const BULK = {
 90
 *120
 240
-เวลา 30
+เวลา 30`,
+    tips: [
+      'ใส่ * ไว้หน้าหรือท้ายตัวเลือกที่ถูก ถ้าไม่ใส่ จะต้องกดเลือกข้อที่ถูกในการ์ดเอง',
+      'ตัวเลือก 2 ถึง 8 ข้อ ไม่ใส่เวลา = 20 วินาที หรือใส่บรรทัด "เวลา 30"',
+      'วางแถวที่คัดลอกจากชีตได้เหมือนเดิม (คำถาม, ตัวเลือก, ข้อที่ถูก, วินาที)'
+    ],
+    why: [
+      ['เว้นหนึ่งบรรทัดระหว่างข้อ', 'บรรทัดว่างคือเส้นแบ่งข้อ ระบบจึงรู้ว่าข้อไหนจบตรงไหน'],
+      ['บรรทัดแรกคือคำถาม ที่เหลือคือตัวเลือก', 'เรียงเหมือนเขียนบนกระดาษ ไม่ต้องใส่เลขข้อหรือ ก ข ค ง เพราะบนจอจะมีสีกับรูปร่างประจำแต่ละตัวเลือกอยู่แล้ว'],
+      ['ใส่ * หน้าข้อที่ถูก', 'มาร์กตรงตัวเลือกเลย ไม่ต้องไปนับว่าข้อถูกคือข้อที่เท่าไร ตัวเลือกสลับลำดับก็ยังมาร์กถูกที่'],
+      ['บรรทัด "เวลา 30"', 'อยู่ท้ายข้อ ไม่ใส่ก็ได้ ระบบใช้ 20 วินาทีให้'],
+      ['เป็นข้อความธรรมดา', 'คัดลอกมาจาก LINE โน้ต หรือให้ AI ช่วยเขียนก็ได้ ไม่ต้องทำชีต']
+    ],
+    ai: `ช่วยจัดข้อสอบของฉันให้อยู่ในรูปแบบข้อความด้านล่างนี้ ตอบเฉพาะข้อความที่จัดแล้ว ไม่ต้องอธิบายเพิ่ม
 
-(ตัวเลือก 2 ถึง 8 ข้อ  เว้นเวลาไว้ = 20 วินาที  หรือวางแถวจากชีตได้เหมือนเดิม)`
+รูปแบบ (หนึ่งข้อต่อหนึ่งกลุ่มบรรทัด เว้นหนึ่งบรรทัดว่างระหว่างข้อ):
+<คำถาม>
+<ตัวเลือก 1>
+*<ตัวเลือกที่ถูก ใส่ * นำหน้า>
+<ตัวเลือก 3>
+<ตัวเลือก 4>
+เวลา <วินาที ถ้ามี>
+
+ข้อสอบของฉัน:
+(วางคำถามและตัวเลือกที่นี่)`
   }
 };
 function bulkParse() { return S.kind === 'vote' ? bulkParseVote($('bulkText').value) : { quiz: bulkParseQuiz($('bulkText').value) }; }
@@ -557,11 +624,33 @@ function openBulk() {
   const k = S.kind;
   $('bulkTitle').textContent = k === 'vote' ? 'วางรางวัลและผู้เข้าชิงทีเดียว' : 'วางคำถามทั้งหมดทีเดียว';
   $('bulkHint').textContent = BULK[k].hint; $('bulkExample').textContent = BULK[k].example;
-  $('bulkText').value = ''; $('bulkText').placeholder = 'วางที่นี่ หรือกด "ดึงของที่มีอยู่มาแก้"';
+  $('bulkTips').innerHTML = BULK[k].tips.map(x => `<li>${esc(x)}</li>`).join('');
+  $('bulkWhy').innerHTML = BULK[k].why.map(([h, b]) => `<li><b>${esc(h)}</b><span>${esc(b)}</span></li>`).join('');
+  $('bulkAi').textContent = BULK[k].ai; $('aiCopy').lastElementChild.textContent = 'คัดลอกคำสั่ง';
+  $('exCopy').lastElementChild.textContent = 'คัดลอกตัวอย่าง';
+  $('bulkText').value = ''; $('bulkText').placeholder = BULK[k].example;
   document.querySelector('input[name=bulkMode][value=replace]').checked = true;
   bulkPreviewUpdate(); $('bulkDlg').showModal(); $('bulkText').focus();
 }
 $('bulkText').addEventListener('input', bulkPreviewUpdate);
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    try { const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; }
+    catch (e2) { return false; }
+  }
+}
+$('exCopy').onclick = async () => {
+  const lab = $('exCopy').lastElementChild, ok = await copyText(BULK[S.kind].example);
+  lab.textContent = ok ? 'คัดลอกแล้ว' : 'คัดลอกไม่ได้ ลองลากคลุมเอง';
+  setTimeout(() => { lab.textContent = 'คัดลอกตัวอย่าง'; }, 2200);
+};
+$('aiCopy').onclick = async () => {
+  const lab = $('aiCopy').lastElementChild, ok = await copyText(BULK[S.kind].ai);
+  lab.textContent = ok ? 'คัดลอกแล้ว' : 'คัดลอกไม่ได้ ลองลากคลุมเอง';
+  setTimeout(() => { lab.textContent = 'คัดลอกคำสั่ง'; }, 2200);
+};
+$('exUse').onclick = () => { $('bulkText').value = BULK[S.kind].example; bulkPreviewUpdate(); $('bulkText').focus(); };
 $('bulkFill').onclick = () => { $('bulkText').value = bulkSerialize(); bulkPreviewUpdate(); };
 $('btnBulk').onclick = openBulk;
 $('btnBulk2').onclick = () => { closeMenu(); openBulk(); };

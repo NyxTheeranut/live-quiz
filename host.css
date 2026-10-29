@@ -463,8 +463,8 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .stage { position: relative; isolation: isolate; }
 .stage::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(1100px, 130%); aspect-ratio: 1; translate: -50% -50%; z-index: -1; opacity: 0; pointer-events: none;
   background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c3) 34%, transparent) 0 8deg, transparent 8deg 24deg);
-  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 68%); mask-image: radial-gradient(circle, #000 0, transparent 68%); }
-.stage.won::before { opacity: 1; animation: rays 18s linear infinite, fadein .8s var(--ease) both; }
+  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 52%); mask-image: radial-gradient(circle, #000 0, transparent 52%); }
+.stage.won::before { opacity: .6; animation: rays 18s linear infinite, fadein .8s var(--ease) both; }
 .stage.won .winner { text-shadow: 0 0 40px color-mix(in srgb, var(--c3) 60%, transparent); }
 @keyframes rays { to { transform: rotate(360deg); } }
 @keyframes fadein { from { opacity: 0; } }
@@ -500,3 +500,5 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .librow .si b { font-family: var(--font-display); overflow-wrap: anywhere; }
 .librow .si span { color: var(--muted); font-size: .88rem; }
 .librow .sa { display: flex; align-items: center; gap: 4px; flex: none; }
+
+.stage.won .sub { color: var(--text); text-shadow: 0 2px 14px var(--bg), 0 0 4px var(--bg); }

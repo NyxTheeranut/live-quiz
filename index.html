@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029151546">
+<link rel="stylesheet" href="theme.css?v=20261029152857">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029151546"></script>
+<script src="config.js?v=20261029152857"></script>
 <style>
   main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
   section { flex: 1; display: flex; flex-direction: column; }
@@ -79,6 +79,8 @@
   .btn.big { min-height: 64px; font-size: 1.3rem; }
   .gamechips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .gamechips .chip { max-width: 100%; overflow-wrap: anywhere; }
+  .gamechips { flex-direction: column; align-items: center; }
+  .gamechips #gameTitle { min-height: 0; padding: 0; background: none; text-align: center; color: var(--accent); font: 800 1.7rem/1.25 var(--font-display); }
   .linkbtn { display: block; margin: 6px auto 0; min-height: 44px; padding: 0 16px; background: none; border: 0; color: var(--muted); font: 600 1rem var(--font-body); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
   .linkbtn:hover { color: var(--text); }
   .ready-num { font: 800 5rem/1 var(--font-display); color: var(--accent); animation: bob 1s ease-in-out infinite; }
@@ -617,7 +619,7 @@ function onEnded(m) {
   show('s-end');
 }
 </script>
-<script src="ui.js?v=20261029151546"></script>
-<script src="fx.js?v=20261029151546"></script>
+<script src="ui.js?v=20261029152857"></script>
+<script src="fx.js?v=20261029152857"></script>
 </body>
 </html>

@@ -770,7 +770,7 @@ async function finish() {
       const ranked = Object.entries(dist).map(([k, n]) => ({ k: +k, n })).sort((a, b) => b.n - a.n);
       const top = ranked.length ? ranked[0].n : 0;
       const w = ranked.filter(r => r.n === top && top > 0).map(r => q.choices[r.k]);
-      return `<li class="tint${i % 4 + 1}" style="--i:${i}"><div class="aw">${esc(q.prompt)}</div><div class="wn">${w.length ? esc(w.join(' และ ')) : 'ไม่มีผู้โหวต'}</div><div class="vt">${top ? top + ' คะแนน' : ''}</div></li>`;
+      return `<li class="tint${i % 4 + 1}${w.length ? '' : ' novote'}" style="--i:${i}"><div class="aw">${esc(q.prompt)}</div><div class="wn">${w.length ? esc(w.join(' และ ')) : 'ไม่มีผู้โหวต'}</div><div class="vt">${top ? top + ' คะแนน' : ''}</div></li>`;
     }).join('');
   } else {
     const { data } = await host('host_reveal', { p_idx: G.qi });

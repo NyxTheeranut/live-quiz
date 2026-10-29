@@ -250,7 +250,7 @@ function settingsSummary() {
   return on.join(', ');
 }
 function updateSettingsSummary() { $('settingsSummary').textContent = settingsSummary(); }
-try { if (localStorage.getItem('quiz-settings-open') === '0') $('settingsCard').open = false; } catch (e) {}
+try { if (localStorage.getItem('quiz-settings-open') === '1') $('settingsCard').open = true; } catch (e) {}
 $('settingsCard').addEventListener('toggle', () => { try { localStorage.setItem('quiz-settings-open', $('settingsCard').open ? '1' : '0'); } catch (e) {} });
 
 function renderAll() {

@@ -333,8 +333,8 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .studiotop { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
 .quickacts { display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 2px; }
 .acard.raised, .acard:has(.emo[open]) { z-index: 40; }
-#bulkDlg { width: min(780px, calc(100vw - 32px)); background: var(--surface); }
-#bulkText { min-height: 280px; font: 400 1rem/1.6 var(--font-body); }
+#bulkDlg { width: min(1080px, calc(100vw - 32px)); max-height: calc(100dvh - 24px); background: var(--surface); }
+#bulkText { min-height: 220px; font: 400 1rem/1.6 var(--font-body); }
 .bulkprev { margin: 10px 0 0; min-height: 1.6em; color: var(--c4); font-weight: 700; }
 .bulkex { margin-top: 8px; }
 .bulkex summary { cursor: pointer; min-height: 40px; display: flex; align-items: center; color: var(--muted); font-weight: 600; }
@@ -404,13 +404,25 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .bulktips { margin: 8px 0 0; padding-left: 1.2em; color: var(--muted); font-size: .92rem; line-height: 1.5; }
 .bulktips li { margin-bottom: 2px; }
 
-/* explanation + AI helper inside the bulk dialog */
-#bulkDlg { max-height: calc(100dvh - 24px); overflow: auto; }
-.bulkwhy, .bulkai { margin-top: 12px; padding: 4px 16px; border: 2px solid var(--line); border-radius: var(--r-card); }
-.bulkwhy summary, .bulkai summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; }
-.bulkwhylist { list-style: none; margin: 4px 0 10px; padding: 0; display: grid; gap: 10px; }
-.bulkwhylist li { display: grid; gap: 2px; }
-.bulkwhylist b { color: var(--c3); font-family: var(--font-display); }
-.bulkwhylist span { color: var(--muted); font-size: .95rem; line-height: 1.5; }
-.bulkai pre { white-space: pre-wrap; max-height: 170px; overflow: auto; margin: 6px 0 10px; padding: 14px; border-radius: 12px; background: var(--surface-2); font: 400 .9rem/1.6 var(--font-body); }
-.bulkai .btn { margin-bottom: 12px; }
+/* bulk dialog: text box on the left, annotated example on the right, one screen at desktop size */
+.bulkgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 22px; }
+.bulkgrid h3 { margin-bottom: 4px; }
+.bulkleft .chipset { margin-top: 12px; }
+.bulkleft .err { min-height: 1.2em; margin: 6px 0 0; }
+.bulkleft .row { margin-top: 10px; }
+.bulkgrid .bulkex { margin: 0; padding: 16px; border: 2px solid var(--line); border-radius: var(--r-card); background: var(--bg); align-self: start; }
+.bulkex .exhead { margin-bottom: 8px; }
+.bulkex pre { max-height: none; overflow: visible; margin: 0; padding: 12px 14px; font-size: .88rem; line-height: 1.7; }
+.bulkex pre .k1 { color: var(--c1); } .bulkex pre .k2 { color: var(--c2); } .bulkex pre .k3 { color: var(--c3); }
+.bulkex pre .k4 { color: var(--c4); } .bulkex pre .k5 { color: var(--c5); } .bulkex pre .k6 { color: var(--c6); }
+.bulkex pre .hd { color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
+.legend { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; font-size: .86rem; line-height: 1.35; }
+.legend li { display: grid; }
+.legend b { font-family: var(--font-display); }
+.legend span { color: var(--muted); }
+.legend .k1 { color: var(--c1); } .legend .k2 { color: var(--c2); } .legend .k3 { color: var(--c3); }
+.legend .k4 { color: var(--c4); } .legend .k5 { color: var(--c5); } .legend .k6 { color: var(--c6); }
+.bulkwhy { margin: 10px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
+.bulkgrid .exbtns { margin-top: 12px; }
+@media (min-width: 900px) { .bulkgrid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 22px; } }
+@media (max-width: 899px) { #bulkDlg { overflow: auto; } }

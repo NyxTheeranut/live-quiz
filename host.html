@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029133413">
-<link rel="stylesheet" href="host.css?v=20261029133413">
+<link rel="stylesheet" href="theme.css?v=20261029133720">
+<link rel="stylesheet" href="host.css?v=20261029133720">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029133413"></script>
+<script src="config.js?v=20261029133720"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -282,42 +282,35 @@
 
 <!-- กล่องโต้ตอบ -->
 <dialog id="bulkDlg">
-  <form method="dialog" class="dlg">
-    <h3 id="bulkTitle">วางทั้งหมดทีเดียว</h3>
-    <p class="hint" id="bulkHint"></p>
-    <label for="bulkText" class="sr-only">ข้อมูลทั้งหมด</label>
-    <textarea id="bulkText" rows="13" spellcheck="false" autocomplete="off"></textarea>
-    <p id="bulkPreview" class="bulkprev" role="status"></p>
-    <div class="bulkex">
-      <div class="exhead"><b>ตัวอย่าง (คัดลอกไปแก้ได้เลย)</b>
-        <span class="exbtns">
-          <button type="button" class="btn ghost small" id="exCopy"><i class="ph-bold ph-copy" aria-hidden="true"></i><span>คัดลอกตัวอย่าง</span></button>
-          <button type="button" class="btn small" id="exUse"><i class="ph-bold ph-clipboard-text" aria-hidden="true"></i>ใส่ตัวอย่างในกล่อง</button>
-        </span>
+  <form method="dialog" class="dlg bulkgrid">
+    <section class="bulkleft">
+      <h3 id="bulkTitle">วางทั้งหมดทีเดียว</h3>
+      <p class="hint" id="bulkHint"></p>
+      <label for="bulkText" class="sr-only">ข้อมูลทั้งหมด</label>
+      <textarea id="bulkText" rows="9" spellcheck="false" autocomplete="off"></textarea>
+      <p id="bulkPreview" class="bulkprev" role="status"></p>
+      <div class="chipset" role="radiogroup" aria-label="วิธีนำเข้า">
+        <label><input type="radio" name="bulkMode" value="replace" checked><span>แทนที่ของเดิม</span></label>
+        <label><input type="radio" name="bulkMode" value="append"><span>เพิ่มต่อท้าย</span></label>
       </div>
+      <p id="bulkErr" class="err" role="alert"></p>
+      <div class="row">
+        <button class="btn" id="bulkGo" value="ok">นำเข้า</button>
+        <button class="btn ghost" id="bulkFill" type="button">ดึงของที่มีอยู่มาแก้</button>
+        <button class="btn ghost" value="cancel">ยกเลิก</button>
+      </div>
+    </section>
+    <aside class="bulkex" aria-label="ตัวอย่างและคำอธิบาย">
+      <div class="exhead"><b>ตัวอย่าง: แต่ละสีคือหนึ่งตำแหน่ง</b></div>
       <pre id="bulkExample" tabindex="0"></pre>
-      <ul id="bulkTips" class="bulktips"></ul>
-    </div>
-    <details class="bulkwhy" open>
-      <summary>ทำไมถึงเขียนแบบนี้</summary>
-      <ul id="bulkWhy" class="bulkwhylist"></ul>
-    </details>
-    <details class="bulkai">
-      <summary>ให้ AI ช่วยจัดรูปแบบให้ (ChatGPT, Claude, Gemini)</summary>
-      <p class="hint">มีรายการอยู่แล้วแต่หน้าตาไม่ตรง? คัดลอกคำสั่งนี้ไปวางในแชต AI พร้อมแปะรายการของคุณ แล้วเอาคำตอบกลับมาวางในกล่องด้านบน</p>
-      <pre id="bulkAi" tabindex="0"></pre>
-      <button type="button" class="btn ghost small" id="aiCopy"><i class="ph-bold ph-copy" aria-hidden="true"></i><span>คัดลอกคำสั่ง</span></button>
-    </details>
-    <div class="chipset" role="radiogroup" aria-label="วิธีนำเข้า" style="margin-top:12px">
-      <label><input type="radio" name="bulkMode" value="replace" checked><span>แทนที่ของเดิม</span></label>
-      <label><input type="radio" name="bulkMode" value="append"><span>เพิ่มต่อท้าย</span></label>
-    </div>
-    <p id="bulkErr" class="err" role="alert"></p>
-    <div class="row">
-      <button class="btn" id="bulkGo" value="ok">นำเข้า</button>
-      <button class="btn ghost" id="bulkFill" type="button">ดึงของที่มีอยู่มาแก้</button>
-      <button class="btn ghost" value="cancel">ยกเลิก</button>
-    </div>
+      <ul id="bulkLegend" class="legend"></ul>
+      <p id="bulkWhy" class="bulkwhy"></p>
+      <div class="exbtns">
+        <button type="button" class="btn small" id="exUse"><i class="ph-bold ph-clipboard-text" aria-hidden="true"></i><span>ใส่ตัวอย่างในกล่อง</span></button>
+        <button type="button" class="btn ghost small" id="exCopy"><i class="ph-bold ph-copy" aria-hidden="true"></i><span>คัดลอกตัวอย่าง</span></button>
+        <button type="button" class="btn ghost small" id="aiCopy" title="คัดลอกคำสั่งไปวางในแชต AI พร้อมรายการของคุณ ให้ช่วยจัดเป็นรูปแบบนี้"><i class="ph-bold ph-magic-wand" aria-hidden="true"></i><span>คำสั่งให้ AI จัดให้</span></button>
+      </div>
+    </aside>
   </form>
 </dialog>
 
@@ -360,10 +353,10 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261029133413"></script>
-<script src="fx.js?v=20261029133413"></script>
-<script src="sound.js?v=20261029133413"></script>
-<script src="studio.js?v=20261029133413"></script>
-<script src="host.js?v=20261029133413"></script>
+<script src="ui.js?v=20261029133720"></script>
+<script src="fx.js?v=20261029133720"></script>
+<script src="sound.js?v=20261029133720"></script>
+<script src="studio.js?v=20261029133720"></script>
+<script src="host.js?v=20261029133720"></script>
 </body>
 </html>

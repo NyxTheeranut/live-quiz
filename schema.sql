@@ -4,6 +4,9 @@
 -- Safe to re-run any time: it never deletes game data. Functions are replaced in place,
 -- tables are only created if missing. You do NOT need to run it before each game;
 -- only run it again when a new version of this file asks for it.
+-- HOST PASSWORD: after running this file, run once (with your own password, 6+ characters):
+--     select set_host_password('your password here');
+-- Until you do, nobody (including you) can create games. Run it again any time to change the password.
 -- Two game kinds: 'quiz' (one right answer, speed points) and
 -- 'vote' (many nominees in groups, no right answer, live tally).
 -- =====================================================================
@@ -79,6 +82,15 @@ begin
   end if;
 end $$;
 
+-- Host password: only someone who knows it can create games (the page code is public, the database is the lock).
+create table if not exists host_auth (
+  id    int primary key check (id = 1),
+  salt  text not null,
+  hash  text not null
+);
+alter table host_auth enable row level security;
+revoke all on host_auth from anon, authenticated;
+
 -- ---------- Who can read what ----------------------------------------
 -- The browser uses the public (publishable / anon) key, so lock tables down
 -- and expose only safe columns. Everything else goes through functions below.
@@ -108,14 +120,45 @@ create policy questions_read on questions for select using (
 
 -- ---------- Functions (the only way to write) ------------------------
 
+-- Set or change the host password. Run it yourself in the SQL Editor, e.g.   select set_host_password('your password');
+-- It is NOT callable from the browser (no grant below), so nobody else can set or reset it.
+create or replace function set_host_password(p_pass text)
+returns void language plpgsql security definer set search_path = public as $$
+declare s text := md5(random()::text || clock_timestamp()::text);
+begin
+  if char_length(coalesce(p_pass, '')) < 6 then raise exception 'รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร'; end if;
+  insert into host_auth (id, salt, hash) values (1, s, encode(sha256(convert_to(s || p_pass, 'utf8')), 'hex'))
+  on conflict (id) do update set salt = excluded.salt, hash = excluded.hash;
+end $$;
+revoke all on function set_host_password(text) from public, anon, authenticated;
+
+create or replace function host_ok(p_pass text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from host_auth where hash = encode(sha256(convert_to(salt || coalesce(p_pass, ''), 'utf8')), 'hex'))
+$$;
+revoke all on function host_ok(text) from public, anon, authenticated;
+
+-- The host page asks this before showing the studio. 'unset' = no password chosen yet (nobody can create games).
+create or replace function check_host_password(p_pass text)
+returns text language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from host_auth) then return 'unset'; end if;
+  if host_ok(p_pass) then return 'ok'; end if;
+  perform pg_sleep(0.7);                                  -- slows down guessing
+  return 'bad';
+end $$;
+
 -- Host: create a game from a JSON array of questions.
 -- quiz: [{ "prompt": "...", "choices": ["A","B","C","D"], "correct": 0, "duration": 20 }, ...]
 -- vote: [{ "prompt": "...", "note": "...", "choices": ["name",...], "groups": ["team",...], "duration": 90 }, ...]
-create or replace function create_game(p_title text, p_questions jsonb, p_kind text default 'quiz')
+drop function if exists create_game(text, jsonb, text);   -- the old version had no password check
+create or replace function create_game(p_title text, p_questions jsonb, p_kind text default 'quiz', p_pass text default null)
 returns json language plpgsql security definer set search_path = public as $$
 declare
   g games; q jsonb; i int := 0; new_pin text;
 begin
+  if not exists (select 1 from host_auth) then raise exception 'ยังไม่ได้ตั้งรหัสผ่านผู้จัด: รัน  select set_host_password(''รหัสผ่านของคุณ'');  ใน SQL Editor ก่อน'; end if;
+  if not host_ok(p_pass) then perform pg_sleep(0.7); raise exception 'รหัสผ่านผู้จัดไม่ถูกต้อง'; end if;
   if p_kind not in ('quiz','vote') then raise exception 'ชนิดเกมไม่ถูกต้อง'; end if;
   if jsonb_typeof(p_questions) <> 'array' or jsonb_array_length(p_questions) = 0 then
     raise exception 'ใส่คำถามหรือรางวัลอย่างน้อย 1 ข้อ';
@@ -252,7 +295,7 @@ begin
 end $$;
 
 -- Lets the host page check that this file has been run (multi-vote needs it).
-create or replace function schema_version() returns int language sql immutable as $$ select 3 $$;
+create or replace function schema_version() returns int language sql immutable as $$ select 4 $$;
 
 -- Host: live counter and per-choice tally while a question is open.
 create or replace function host_stats(p_game uuid, p_token uuid, p_idx int)
@@ -331,5 +374,5 @@ begin
      order by p.nickname, a.idx;
 end $$;
 
-grant execute on function create_game, join_game, set_phase, submit_answer, submit_votes, schema_version,
+grant execute on function create_game, check_host_password, join_game, set_phase, submit_answer, submit_votes, schema_version,
                           host_stats, host_reveal, host_summary, get_results to anon, authenticated;

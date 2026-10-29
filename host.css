@@ -519,3 +519,14 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .step.m1 .block { background: var(--gold); } .step.m2 .block { background: var(--silver); } .step.m3 .block { background: var(--bronze); }
 .finalquiz .step .who .medal { font-size: clamp(1.2rem, 3.4vh, 1.8rem); margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { .step .who .medal { animation: none; } }
+
+/* host lock screen */
+.lockscreen { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+.lockcard { width: min(420px, 100%); text-align: center; justify-items: stretch; }
+.lockicon { font-size: 3.6rem; color: var(--c3); justify-self: center; animation: bob 2.6s ease-in-out infinite; }
+.lockcard .join-title { font-size: clamp(1.7rem, 5vw, 2.2rem); margin: 0; }
+.lockcard input[type=password] { text-align: center; font-size: 1.2rem; min-height: 56px; }
+.lockcard .remember { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0; font-weight: 500; color: var(--muted); cursor: pointer; }
+.lockcard .remember input { width: 20px; height: 20px; accent-color: var(--c3); }
+.lockcard .stack > * , .lockcard.stack > * { margin: 0; }
+.lockcard.stack { display: grid; gap: 14px; }

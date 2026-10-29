@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029155937">
-<link rel="stylesheet" href="host.css?v=20261029155937">
+<link rel="stylesheet" href="theme.css?v=20261029164802">
+<link rel="stylesheet" href="host.css?v=20261029164802">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029155937"></script>
+<script src="config.js?v=20261029164802"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -27,7 +27,21 @@
 </div>
 
 <!-- 1. สตูดิโอสร้างเกม -->
-<section id="h-setup">
+<!-- 0. ล็อก: ต้องใส่รหัสผ่านผู้จัดก่อนถึงจะเข้าสตูดิโอและสร้างเกมได้ -->
+<section id="h-lock" class="lockscreen">
+  <form id="lockForm" class="lockcard stack" novalidate>
+    <i class="ph-fill ph-lock-key lockicon" aria-hidden="true"></i>
+    <h1 class="join-title">สำหรับผู้จัดเท่านั้น</h1>
+    <p class="muted" id="lockMsg">ใส่รหัสผ่านผู้จัดเพื่อเข้าสตูดิโอ</p>
+    <label for="lockPass" class="sr-only">รหัสผ่านผู้จัด</label>
+    <input type="password" id="lockPass" autocomplete="current-password" placeholder="รหัสผ่านผู้จัด">
+    <label class="remember"><input type="checkbox" id="lockRemember"> จำไว้ในเครื่องนี้</label>
+    <button class="btn block big" id="lockBtn" type="submit">เข้าสู่สตูดิโอ</button>
+    <p class="err" id="lockErr" role="alert"></p>
+  </form>
+</section>
+
+<section id="h-setup" class="hide">
   <header class="studiobar">
     <div class="brand"><i class="ph-fill ph-confetti" aria-hidden="true"></i><span>สตูดิโอสร้างเกม</span></div>
     <div class="seg" role="radiogroup" aria-label="รูปแบบเกม">
@@ -374,11 +388,11 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261029155937"></script>
-<script src="fx.js?v=20261029155937"></script>
+<script src="ui.js?v=20261029164802"></script>
+<script src="fx.js?v=20261029164802"></script>
 <script src="qr.js"></script>
-<script src="sound.js?v=20261029155937"></script>
-<script src="studio.js?v=20261029155937"></script>
-<script src="host.js?v=20261029155937"></script>
+<script src="sound.js?v=20261029164802"></script>
+<script src="studio.js?v=20261029164802"></script>
+<script src="host.js?v=20261029164802"></script>
 </body>
 </html>

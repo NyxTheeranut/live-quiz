@@ -1,7 +1,7 @@
 // Host game engine. Uses $, esc, LETTERS, SHAPES from studio.js (loaded first).
 const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const SCREENS = ['h-setup', 'h-lobby', 'h-pre', 'h-q', 'h-reveal', 'h-board', 'h-end'];
+const SCREENS = ['h-lock', 'h-setup', 'h-lobby', 'h-pre', 'h-q', 'h-reveal', 'h-board', 'h-end'];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
@@ -12,6 +12,41 @@ const show = id => {
   $('tbar').classList.add('hide');
   window.scrollTo(0, 0);
 };
+// ---------- ล็อกผู้จัด: รหัสผ่านถูกตรวจที่ฐานข้อมูล (หน้านี้เป็นสาธารณะ จึงใช้แค่ซ่อนหน้าไม่ได้) ----------
+const PASS_KEY = 'quiz-hostpass';
+const getPass = () => { try { return sessionStorage.getItem(PASS_KEY) || localStorage.getItem(PASS_KEY) || ''; } catch (e) { return ''; } };
+const clearPass = () => { try { sessionStorage.removeItem(PASS_KEY); localStorage.removeItem(PASS_KEY); } catch (e) {} };
+async function checkPass(p) {
+  const { data, error } = await db.rpc('check_host_password', { p_pass: p });
+  if (error) return { state: /could not find|schema cache|does not exist/i.test(error.message) ? 'old' : 'error', msg: error.message };
+  return { state: data };
+}
+function showLock(msg, isErr) {
+  show('h-lock');
+  $('lockMsg').textContent = msg || 'ใส่รหัสผ่านผู้จัดเพื่อเข้าสตูดิโอ';
+  $('lockErr').textContent = isErr || ''; $('lockPass').value = '';
+  $('lockBtn').disabled = false; $('lockBtn').textContent = 'เข้าสู่สตูดิโอ'; $('lockPass').focus();
+}
+async function tryUnlock(p, remember) {
+  const r = await checkPass(p);
+  if (r.state === 'ok') {
+    try { sessionStorage.setItem(PASS_KEY, p); if (remember) localStorage.setItem(PASS_KEY, p); } catch (e) {}
+    show('h-setup'); return true;
+  }
+  clearPass();
+  if (r.state === 'unset') showLock('ยังไม่ได้ตั้งรหัสผ่านผู้จัด: เปิด Supabase > SQL Editor แล้วรัน  select set_host_password(\'รหัสผ่านของคุณ\');  จากนั้นรีเฟรชหน้านี้');
+  else if (r.state === 'old') showLock('ฐานข้อมูลยังเป็นเวอร์ชันเก่า: เปิด Supabase > SQL Editor วางไฟล์ schema.sql ทั้งไฟล์แล้วกด Run จากนั้นรีเฟรชหน้านี้');
+  else if (r.state === 'bad') showLock('', p ? 'รหัสผ่านไม่ถูกต้อง ลองอีกครั้งนะ' : '');
+  else showLock('', 'เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง');
+  return false;
+}
+$('lockForm').addEventListener('submit', async e => {
+  e.preventDefault(); const p = $('lockPass').value;
+  if (!p) return void ($('lockErr').textContent = 'ใส่รหัสผ่านก่อนนะ');
+  $('lockBtn').disabled = true; $('lockBtn').textContent = 'กำลังตรวจ...';
+  await tryUnlock(p, $('lockRemember').checked);
+});
+async function bootLock() { const p = getPass(); if (p) await tryUnlock(p, false); else showLock(); }
 const restart = (el, name) => { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = name || ''; };
 
 const DEFAULT_CFG = { hideAt: '50', ceremony: true, phoneLive: false, music: true, hideText: false, preview: true, viewStyle: 'bars', fogKind: 'mock' };
@@ -112,9 +147,12 @@ $('createBtn').onclick = async () => {
   }
   $('createBtn').disabled = true; $('setupErr').textContent = '';
   try { const old = JSON.parse(localStorage.getItem('quiz-host')); if (old && old.game_id) { await endGame(old); localStorage.removeItem('quiz-host'); } } catch (e) {}
-  const { data, error } = await db.rpc('create_game', { p_title: b.title, p_questions: b.questions, p_kind: b.kind });
+  const { data, error } = await db.rpc('create_game', { p_title: b.title, p_questions: b.questions, p_kind: b.kind, p_pass: getPass() });
   $('createBtn').disabled = false;
-  if (error) return void ($('setupErr').textContent = error.message);
+  if (error) {
+    if (/รหัสผ่านผู้จัด/.test(error.message)) { clearPass(); showLock('', 'รหัสผ่านใช้ไม่ได้แล้ว ใส่ใหม่อีกครั้งนะ'); return; }
+    return void ($('setupErr').textContent = error.message);
+  }
   G = { ...data, title: b.title, kind: b.kind, questions: b.questions, settings: b.settings, qi: -1 };
   saveGame(); openChannel(); lobby();
 };
@@ -821,3 +859,6 @@ $('csvBtn').onclick = async () => {
   a.click();
 };
 $('newBtn').onclick = () => { localStorage.removeItem('quiz-host'); location.reload(); };
+
+// เริ่มที่หน้าล็อก (ต้องอยู่ท้ายไฟล์ เพราะ show() ใช้ตัวแปรที่ประกาศไว้ด้านบนทั้งหมด)
+bootLock();

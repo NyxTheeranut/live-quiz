@@ -490,3 +490,13 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .topicrow input:focus-visible { outline-offset: 2px; }
 .addtopic { justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 2px dashed var(--line); border-radius: var(--r-pill); background: transparent; color: var(--muted); font: 600 .9rem var(--font-body); cursor: pointer; touch-action: manipulation; }
 .addtopic:hover { color: var(--text); border-color: var(--c3); }
+
+/* my sets (library) */
+#setsDlg { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 24px); background: var(--surface); }
+.setslist { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; max-height: 46dvh; overflow: auto; }
+.librow { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border: 2px solid var(--line); border-radius: var(--r-card); }
+.librow.cur { border-color: var(--c3); }
+.librow .si { display: grid; min-width: 0; flex: 1; }
+.librow .si b { font-family: var(--font-display); overflow-wrap: anywhere; }
+.librow .si span { color: var(--muted); font-size: .88rem; }
+.librow .sa { display: flex; align-items: center; gap: 4px; flex: none; }

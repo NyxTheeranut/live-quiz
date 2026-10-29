@@ -41,7 +41,36 @@ let S = (() => {
 })();
 S.settings = { ...DEFAULT_SET, ...(S.settings || {}) };
 let saveT = null;
-const save = () => { updateSettingsSummary(); clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(S)); } catch (e) {} }, 300); };
+const save = () => { updateSettingsSummary(); clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(S)); } catch (e) {} saveToLibrary(); }, 300); };
+
+// ---------- ชุดของฉัน: หลายชุดในเบราว์เซอร์เดียวกัน (ควิซวันศุกร์ ควิซวันจันทร์ ...) แก้ชุดไหนก็บันทึกเข้าชุดนั้นเอง ----------
+const LIB_KEY = 'quiz-sets';
+const readLib = () => { try { const l = JSON.parse(localStorage.getItem(LIB_KEY)); return l && typeof l === 'object' ? l : {}; } catch (e) { return {}; } };
+const newSetId = () => 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+function saveToLibrary() {
+  try {
+    if (!S.setId) S.setId = newSetId();
+    const lib = readLib(); lib[S.setId] = { id: S.setId, updated: Date.now(), data: clone(S) };
+    localStorage.setItem(LIB_KEY, JSON.stringify(lib)); localStorage.setItem(DRAFT_KEY, JSON.stringify(S));
+  } catch (e) {}
+}
+function blankSet(kind) {
+  const base = { kind, title: DEFAULT_TITLE[kind], settings: { ...DEFAULT_SET } };
+  return { ...base, awards: [{ title: '', note: '', sec: 90, max: 1 }], groups: [{ name: '', names: [] }], quiz: [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }] };
+}
+const setCount = d => d.kind === 'quiz' ? `${(d.quiz || []).filter(q => q.prompt && q.prompt.trim()).length} ข้อ` : `${(d.awards || []).filter(a => a.title && a.title.trim()).length} รางวัล`;
+function renderSets() {
+  const lib = readLib(), items = Object.values(lib).sort((a, b) => b.updated - a.updated);
+  $('setsList').innerHTML = items.length ? items.map(it => {
+    const d = it.data, cur = it.id === S.setId, when = new Date(it.updated).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return `<li class="librow${cur ? ' cur' : ''}" data-id="${esc(it.id)}">
+      <div class="si"><b>${esc(d.title || DEFAULT_TITLE[d.kind])}</b><span>${d.kind === 'quiz' ? 'ควิซ' : 'โหวตรางวัล'} · ${setCount(d)} · แก้ล่าสุด ${esc(when)}</span></div>
+      <div class="sa">${cur ? '<span class="chip">กำลังแก้ไข</span>' : '<button type="button" class="btn small" data-act="open">เปิด</button>'}
+        <button type="button" class="iconbtn" data-act="copy" aria-label="ทำสำเนาชุดนี้"><i class="ph-bold ph-copy" aria-hidden="true"></i></button>
+        <button type="button" class="iconbtn" data-act="del" aria-label="ลบชุดนี้"><i class="ph-bold ph-trash" aria-hidden="true"></i></button></div></li>`;
+  }).join('') : '<li class="muted">ยังไม่มีชุดที่บันทึกไว้</li>';
+}
+function loadSet(d, id) { S = { ...clone(d), settings: { ...DEFAULT_SET, ...(d.settings || {}) }, setId: id }; renderAll(); save(); }
 
 // ---------- อ่านข้อความที่วางมาจากชีต (แท็บ) หรือ CSV ----------
 function parseRows(text) {
@@ -403,6 +432,24 @@ $('loadSheetBtn').onclick = async e => {
   } catch (err) { msg('โหลดไม่สำเร็จ ตรวจว่าเปิดเว็บแอปเป็น "ทุกคน" และมีฟังก์ชัน doGet แล้ว'); }
 };
 
+$('btnSets').onclick = () => { saveToLibrary(); renderSets(); $('setsDlg').showModal(); };
+$('setsClose').onclick = () => $('setsDlg').close();
+$('setNew').onclick = () => { saveToLibrary(); loadSet(blankSet(S.kind), undefined); $('setsDlg').close(); focusAfter('#title'); };
+$('setsList').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const id = b.closest('.librow').dataset.id, lib = readLib(), it = lib[id]; if (!it) return;
+  if (b.dataset.act === 'open') { saveToLibrary(); loadSet(it.data, id); $('setsDlg').close(); }
+  else if (b.dataset.act === 'copy') {
+    const nid = newSetId(), d = clone(it.data); d.title = (d.title || DEFAULT_TITLE[d.kind]) + ' (สำเนา)'; d.setId = nid;
+    lib[nid] = { id: nid, updated: Date.now(), data: d }; localStorage.setItem(LIB_KEY, JSON.stringify(lib)); renderSets();
+  } else if (b.dataset.act === 'del') {
+    if (!(await UI.confirm(`ลบชุด "${it.data.title || DEFAULT_TITLE[it.data.kind]}" ใช่ไหม`, 'ลบชุดนี้'))) return;
+    delete lib[id]; localStorage.setItem(LIB_KEY, JSON.stringify(lib));
+    if (id === S.setId) { S.setId = undefined; loadSet(blankSet(S.kind), undefined); }
+    renderSets();
+  }
+});
+
 $('btnExport').onclick = () => {
   closeMenu();
   const a = document.createElement('a');
@@ -415,7 +462,7 @@ $('fileIn').onchange = async () => {
   try {
     const d = JSON.parse(await f.text());
     if (!Array.isArray(d.awards) || !Array.isArray(d.groups) || !Array.isArray(d.quiz)) throw new Error('bad');
-    S = { kind: d.kind === 'quiz' ? 'quiz' : 'vote', title: String(d.title || ''), awards: d.awards, groups: d.groups, quiz: d.quiz, settings: { ...DEFAULT_SET, ...(d.settings || {}) } };
+    S = { setId: undefined, kind: d.kind === 'quiz' ? 'quiz' : 'vote', title: String(d.title || ''), awards: d.awards, groups: d.groups, quiz: d.quiz, settings: { ...DEFAULT_SET, ...(d.settings || {}) } };
     renderAll(); save();
   } catch (e) { $('setupErr').textContent = 'ไฟล์นี้ไม่ใช่ไฟล์เกมที่บันทึกจากสตูดิโอนี้'; }
 };

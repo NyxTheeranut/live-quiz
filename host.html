@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029145233">
-<link rel="stylesheet" href="host.css?v=20261029145233">
+<link rel="stylesheet" href="theme.css?v=20261029150205">
+<link rel="stylesheet" href="host.css?v=20261029150205">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029145233"></script>
+<script src="config.js?v=20261029150205"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -35,6 +35,7 @@
       <label><input type="radio" name="kind" value="quiz"><span><i class="ph-bold ph-lightning" aria-hidden="true"></i>ควิซ</span></label>
     </div>
     <div class="bar-actions">
+      <button type="button" class="btn ghost small" id="btnSets"><i class="ph-bold ph-books" aria-hidden="true"></i>ชุดของฉัน</button>
       <details class="menu" id="importMenu">
         <summary class="btn ghost small"><i class="ph-bold ph-upload-simple" aria-hidden="true"></i>นำเข้า / ส่งออก</summary>
         <div class="menupanel">
@@ -320,6 +321,18 @@
   </form>
 </dialog>
 
+<dialog id="setsDlg">
+  <div class="dlg">
+    <h3>ชุดของฉัน</h3>
+    <p class="hint">ทุกชุดที่คุณสร้างถูกบันทึกในเบราว์เซอร์เครื่องนี้ให้อัตโนมัติ เช่น ควิซวันศุกร์ ควิซวันจันทร์ เปิดมาแก้หรือเล่นซ้ำได้ ถ้าจะย้ายไปเครื่องอื่นให้ใช้ "นำเข้า / ส่งออก" แล้วเลือกบันทึกเป็นไฟล์</p>
+    <ul id="setsList" class="setslist"></ul>
+    <div class="row">
+      <button type="button" class="btn" id="setNew"><i class="ph-bold ph-plus" aria-hidden="true"></i>สร้างชุดใหม่</button>
+      <button type="button" class="btn ghost" id="setsClose">ปิด</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="pasteDlg">
   <form method="dialog" class="dlg">
     <h3>วางจาก Google Sheets หรือ Excel</h3>
@@ -359,11 +372,11 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261029145233"></script>
-<script src="fx.js?v=20261029145233"></script>
+<script src="ui.js?v=20261029150205"></script>
+<script src="fx.js?v=20261029150205"></script>
 <script src="qr.js"></script>
-<script src="sound.js?v=20261029145233"></script>
-<script src="studio.js?v=20261029145233"></script>
-<script src="host.js?v=20261029145233"></script>
+<script src="sound.js?v=20261029150205"></script>
+<script src="studio.js?v=20261029150205"></script>
+<script src="host.js?v=20261029150205"></script>
 </body>
 </html>

@@ -43,7 +43,7 @@ function confetti() {
   const cv = $('confetti'), ctx = cv.getContext('2d');
   cv.width = innerWidth; cv.height = innerHeight;
   const css = getComputedStyle(document.documentElement);
-  const cols = ['--c1', '--c2', '--c3', '--c4', '--text'].map(v => css.getPropertyValue(v).trim());
+  const cols = ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6', '--c7', '--c8', '--text'].map(v => css.getPropertyValue(v).trim());
   const bits = Array.from({ length: 170 }, () => ({
     x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * .6,
     w: 7 + Math.random() * 9, h: 11 + Math.random() * 11, vy: 3 + Math.random() * 4.5,
@@ -120,10 +120,20 @@ $('createBtn').onclick = async () => {
 };
 
 // ---------- 2. ล็อบบี้ ----------
+// QR ของลิงก์เข้าเกม (มี ?pin= อยู่แล้ว สแกนแล้วข้ามขั้นกรอกรหัสได้) วาดเป็น SVG เอง ไม่ต้องพึ่งอินเทอร์เน็ต
+function drawQR(text) {
+  try {
+    const qr = qrcode(0, 'M'); qr.addData(text); qr.make();
+    const n = qr.getModuleCount(), m = 2; let d = '';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + m} ${r + m}h1v1h-1z`;
+    $('qrImg').innerHTML = `<svg viewBox="0 0 ${n + m * 2} ${n + m * 2}" shape-rendering="crispEdges" aria-hidden="true"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#0E1626"/></svg>`;
+  } catch (e) { $('qrImg').innerHTML = ''; }
+}
 function lobby() {
   const url = new URL('./', location.href);
   $('joinUrl').textContent = url.host + url.pathname;
   $('pinBig').textContent = G.pin;
+  drawQR(new URL('./?pin=' + G.pin, location.href).href);
   $('lobbyTitle').textContent = G.title || '';
   $('startBtn').innerHTML = `<i class="ph-fill ph-play" aria-hidden="true"></i>${G.kind === 'vote' ? 'เริ่มโหวตรางวัลแรก' : 'เริ่มเล่น'}`;
   $('names').innerHTML = '';
@@ -137,8 +147,8 @@ function lobby() {
     data.forEach(p => {
       if (seen.has(p.nickname)) return;
       const b = document.createElement('span');
-      b.className = 'bubble tint' + (seen.size % 4 + 1);
-      b.style.setProperty('--bd', (seen.size % 7) * -.45 + 's');
+      b.className = 'bubble tint' + (seen.size % 8 + 1);
+      b.style.setProperty('--bd', (seen.size % 7) * -.45 + 's'); b.style.setProperty('--tilt', ((seen.size * 7) % 9 - 4) + 'deg');
       b.textContent = p.nickname;
       $('names').appendChild(b);
       seen.add(p.nickname); sfx.pop();
@@ -237,6 +247,8 @@ function runTick(q) {
   tick = setInterval(() => {
     const left = qEnd - Date.now(), s = Math.max(0, Math.ceil(left / 1000));
     $('qtimer').textContent = s;
+    $('qarc').style.strokeDashoffset = String(Math.min(100, Math.max(0, 100 * (1 - left / (q.duration * 1000)))));
+    $('qring').classList.toggle('hot', s <= 5); $('qring').classList.toggle('warm', s <= 10 && s > 5);
     $('qtimer').classList.toggle('low', s <= 10);
     bar.classList.toggle('low', s <= 10);
     if (s !== lastS && s <= 5 && s > 0) sfx.tick();
@@ -247,6 +259,7 @@ function runTick(q) {
 }
 function resetAllIn() {
   allIn = false; frozenLeft = 0;
+  $('qring').classList.remove('frozen', 'hot', 'warm'); $('qarc').style.strokeDashoffset = '0';
   $('qtimer').classList.remove('frozen'); $('tbar').classList.remove('frozen'); $('tbar').firstElementChild.style.animationPlayState = '';
   document.querySelector('#voteLive .tools').appendChild($('closeBtn')); $('liveArea').classList.remove('allin');
   $('closeBtn').classList.remove('allin'); document.querySelector('#voteLive .tools').classList.remove('allin');
@@ -265,7 +278,8 @@ function setAllIn(on) {
     qEnd = Date.now() + frozenLeft; bar.firstElementChild.style.animationPlayState = '';
     runTick(G.questions[G.qi]);
   }
-  $('qtimer').classList.toggle('frozen', on); bar.classList.toggle('frozen', on);
+  $('qtimer').classList.toggle('frozen', on); bar.classList.toggle('frozen', on); $('qring').classList.toggle('frozen', on);
+  if (on) $('qring').classList.remove('hot', 'warm');
   const tools = document.querySelector('#voteLive .tools');
   (on ? $('allStage') : tools).appendChild($('closeBtn'));           // ครบแล้ว: ปุ่มไปอยู่ใต้ข้อความกลางจอ
   $('liveArea').classList.toggle('allin', on);
@@ -528,7 +542,7 @@ async function reveal() {
   setNext(null, false);
   if (G.kind === 'vote') {            // ขึ้นหน้าประกาศผลทันที ก่อนรอเน็ต จะได้ไม่มีภาพอันดับหลุดให้เห็น
     $('voteResult').classList.remove('hide'); $('quizResult').classList.add('hide');
-    $('stage').classList.add('pending'); $('stage').classList.remove('pop');
+    $('stage').classList.add('pending'); $('stage').classList.remove('pop', 'won');
     $('drum').classList.remove('done'); $('drum').textContent = 'กำลังนับคะแนน...';
     $('winner').textContent = '...'; $('winnerSub').textContent = ''; $('pod').innerHTML = ''; $('runners').innerHTML = ''; $('placed').innerHTML = '';
     show('h-reveal');
@@ -550,7 +564,7 @@ async function reveal() {
   $('bars').innerHTML = shown.map(([c, k], n) => {
     const v = data.dist[k] || 0, ok = k === data.correct, pct = answeredN ? Math.round(v * 100 / answeredN) : 0;
     return `<div class="qcol tint${k + 1} ${ok ? 'right' : 'wrong'}" style="--d:${n * 90}ms">
-      <div class="qtop">${ok ? '<span class="qok"><i class="ph-fill ph-check-circle" aria-hidden="true"></i>ถูก</span>' : ''}<b class="qn num">${v}</b><span class="qpct num">${pct}%</span></div>
+      <div class="qctop">${ok ? '<span class="qok"><i class="ph-fill ph-check-circle" aria-hidden="true"></i>ถูก</span>' : ''}<b class="qn num">${v}</b><span class="qpct num">${pct}%</span></div>
       <div class="qtrack"><div class="qfill" style="height:${v ? Math.max(6, Math.round(v * 100 / peak)) : 3}%"></div></div>
       <div class="qlab"><i class="ph-fill ph-${SHAPES[k]}" aria-hidden="true"></i><span>${esc(c)}</span></div></div>`;
   }).join('');
@@ -685,7 +699,7 @@ async function revealVote(i, q, last) {
       await wait(70 + k * k * .55);
     }
   }
-  $('stage').classList.remove('pending'); restart($('winner'), 'pop .6s var(--spring) both');
+  $('stage').classList.remove('pending'); $('stage').classList.add('won'); restart($('winner'), 'pop .6s var(--spring) both');
   $('drum').classList.add('done'); $('placed').innerHTML = '';
   $('winner').textContent = winText;
   $('winnerSub').textContent = !winners.length ? '' : (winners.length > 1 ? `เสมอกัน ${topN} คะแนน` : `${topN} คะแนน จากผู้โหวต ${data.answered} คน`);

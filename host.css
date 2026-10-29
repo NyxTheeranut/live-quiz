@@ -93,11 +93,11 @@ dialog::backdrop { background: rgba(8, 12, 22, .72); backdrop-filter: blur(4px);
 
 /* lobby */
 .lobby { max-width: 1240px; margin: 0 auto; padding: 32px 24px 64px; }
-.lobby-top { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px; align-items: center; }
+.lobby-top { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 28px; align-items: center; }
 .joincard { padding: 28px 32px; border-radius: 28px; background: var(--text); color: var(--bg); box-shadow: 0 10px 0 rgba(0, 0, 0, .3); }
 .jl { font-size: 1.3rem; } .jl b { font-family: var(--font-display); }
 .jl2 { color: #55607a; margin-bottom: 4px; }
-.pin { font: 800 clamp(4rem, 12vw, 9rem)/1 var(--font-display); letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.pin { font: 800 clamp(3rem, 7vw, 6.4rem)/1 var(--font-display); letter-spacing: .08em; font-variant-numeric: tabular-nums; }
 .lobby-title { font: 800 clamp(1.6rem, 3.6vw, 2.6rem)/1.25 var(--font-display); margin-bottom: 14px; overflow-wrap: anywhere; }
 .count { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; }
 .count b { font: 800 clamp(3.5rem, 8vw, 6rem)/1 var(--font-display); color: var(--c3); }
@@ -109,8 +109,10 @@ dialog::backdrop { background: rgba(8, 12, 22, .72); backdrop-filter: blur(4px);
 /* question */
 .qscreen { max-width: 1240px; margin: 0 auto; padding: 28px 24px 72px; }
 .qtop { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
-.qtop .timer { margin-left: auto; font: 800 3.4rem/1 var(--font-display); }
-.qtop .timer.low { color: var(--c1); animation: bump .5s var(--ease) infinite; }
+.qtop .ring { margin-left: auto; }
+.timer { font: 800 2.2rem/1 var(--font-display); }
+.timer.low { color: var(--c3); }
+.ring.hot .timer { color: var(--c1); animation: bump .5s var(--ease) infinite; }
 .qtitle { font-size: clamp(2.6rem, 7.4vw, 5.4rem); line-height: 1.1; text-align: center; margin: 18px 0 8px; animation: rise .6s var(--ease) both; }
 .progress { height: 10px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; margin: 16px 0 20px; }
 .progress i { display: block; height: 100%; background: var(--c2); transform-origin: left; transform: scaleX(0); transition: transform .5s var(--ease); }
@@ -162,7 +164,7 @@ ol.board li b { font-family: var(--font-display); font-variant-numeric: tabular-
 /* quiz answers: one column per choice, height = how many picked it; the right one is lit, the rest recede */
 .qbars { --h: clamp(220px, calc(100dvh - 420px), 600px); margin: 20px auto 0; max-width: calc(var(--n, 4) * 190px); display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: clamp(8px, 1.6vw, 22px); align-items: end; }
 .qcol { display: grid; grid-template-rows: auto var(--h) auto; gap: 10px; min-width: 0; }
-.qtop { display: grid; justify-items: center; align-content: end; gap: 0; min-height: 76px; }
+.qctop { display: grid; justify-items: center; align-content: end; gap: 0; min-height: 76px; }
 .qn { font: 800 clamp(1.8rem, 3.4vw, 2.8rem)/1.05 var(--font-display); }
 .qpct { color: var(--muted); font-weight: 600; font-size: .95rem; }
 .qok { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; margin-bottom: 4px; border-radius: var(--r-pill); background: var(--tint); color: var(--on-c); font: 800 1rem var(--font-display); animation: pop .5s var(--spring) .5s both; }
@@ -198,7 +200,7 @@ code { background: var(--surface-2); padding: 2px 8px; border-radius: 8px; word-
   .qcard .anum { display: none; }
 }
 @media (max-width: 560px) {
-  .qtop .timer { font-size: 2.6rem; }
+  .ring { --rs: 76px; }
   .crow .nm { font-size: 1.2rem; }
   .menupanel { right: auto; left: 0; min-width: 260px; }
 }
@@ -295,7 +297,7 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 #chart.censor .gp { filter: blur(.32em); user-select: none; }
 
 /* ================= Everyone has voted: timer frozen, one big centred button ================= */
-.timer.frozen { color: var(--c4); }
+.timer.frozen, .ring.frozen .timer { color: var(--c4); }
 .tbar.frozen i { background: var(--c4); }
 .tools.allin { display: none; }
 #closeBtn.allin { position: relative; min-height: 72px; padding: 0 52px; font-size: 1.7rem; animation: pop .5s var(--spring) both; }
@@ -318,7 +320,7 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 @media (min-width: 900px) and (min-height: 540px) {
   body.lockq { overflow: hidden; }
   #h-q.qscreen { height: 100dvh; display: flex; flex-direction: column; padding-top: 14px; padding-bottom: 14px; }
-  #h-q .qtop .timer { font-size: clamp(2rem, 6.5vh, 3.2rem); }
+  #h-q .qtop .ring { --rs: clamp(34px, 6vh, 88px); }
   #h-q .qtitle { font-size: clamp(1.8rem, min(4.4vw, 7vh), 3.6rem); margin: 6px 0 2px; }
   #h-q.qscreen .award-note { font-size: clamp(1rem, 2.5vh, 1.3rem); }
   #h-q .progress { height: 8px; margin: 8px 0 10px; }
@@ -437,3 +439,46 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .bulkgrid .exbtns { margin-top: 12px; }
 @media (min-width: 900px) { .bulkgrid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 22px; } }
 @media (max-width: 899px) { #bulkDlg { overflow: auto; } }
+
+/* ---------- countdown ring: drains with the clock, amber at 10s, red at 5s ---------- */
+.ring { --rs: 92px; position: relative; width: var(--rs); height: var(--rs); flex: none; display: grid; place-items: center; }
+.ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 9; }
+.ring .trk { stroke: var(--surface-2); }
+.ring .arc { stroke: var(--c4); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 0; transition: stroke-dashoffset .26s linear, stroke .3s var(--ease); }
+.ring.warm .arc { stroke: var(--c3); } .ring.hot .arc { stroke: var(--c1); } .ring.frozen .arc { stroke: var(--c4); }
+.ring.hot { animation: bump .5s var(--ease) infinite; }
+.ring .timer { position: relative; font-size: calc(var(--rs) * .42); }
+
+/* ---------- lobby: join card with QR, mixed-colour name tags ---------- */
+.joincard { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px 28px; align-items: center; }
+.qrbox { margin: 0; display: grid; justify-items: center; gap: 6px; }
+#qrImg { width: clamp(150px, 17vw, 230px); aspect-ratio: 1; border-radius: 14px; overflow: hidden; border: 3px solid var(--bg); background: #fff; }
+#qrImg svg { display: block; width: 100%; height: 100%; }
+.qrbox figcaption { color: #55607a; font-size: .95rem; font-weight: 600; }
+.bubble { transform: rotate(var(--tilt, 0deg)); font-size: 1.3rem; min-height: 56px; }
+@media (max-width: 899px) { .joincard { grid-template-columns: minmax(0, 1fr); justify-items: start; } }
+
+/* ---------- winner: rotating light rays behind the name ---------- */
+.stage { position: relative; isolation: isolate; }
+.stage::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(1100px, 130%); aspect-ratio: 1; translate: -50% -50%; z-index: -1; opacity: 0; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c3) 34%, transparent) 0 8deg, transparent 8deg 24deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 68%); mask-image: radial-gradient(circle, #000 0, transparent 68%); }
+.stage.won::before { opacity: 1; animation: rays 18s linear infinite, fadein .8s var(--ease) both; }
+.stage.won .winner { text-shadow: 0 0 40px color-mix(in srgb, var(--c3) 60%, transparent); }
+@keyframes rays { to { transform: rotate(360deg); } }
+@keyframes fadein { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .stage.won::before { animation: none; } }
+
+/* ---------- type: big things stay heavy, supporting text steps back ---------- */
+.chip { font-weight: 500; }
+.award-note, .stage .sub, .pre-note { font-weight: 400; color: var(--muted); }
+.hint { font-size: .9rem; }
+.qtitle, .stage .winner, .pin, .lobby-title { letter-spacing: -.01em; }
+
+/* short screens (laptops, 1024x600): tighter top block so a long title still leaves room for every row */
+@media (min-width: 900px) and (min-height: 540px) and (max-height: 660px) {
+  #h-q .qtop { gap: 4px 12px; }
+  #h-q .qtitle { font-size: clamp(1.4rem, min(3.6vw, 5.6vh), 2.6rem); }
+  #h-q.qscreen .award-note { font-size: clamp(.9rem, 2.2vh, 1.1rem); }
+}

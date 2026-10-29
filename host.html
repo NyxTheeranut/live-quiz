@@ -9,10 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261029134605">
-<link rel="stylesheet" href="host.css?v=20261029134605">
+<link rel="stylesheet" href="theme.css?v=20261029142906">
+<link rel="stylesheet" href="host.css?v=20261029142906">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261029134605"></script>
+<script src="config.js?v=20261029142906"></script>
 </head>
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
@@ -164,9 +164,12 @@
 <section id="h-lobby" class="hide lobby">
   <div class="lobby-top">
     <div class="joincard pop">
-      <div class="jl">ใช้มือถือเข้าที่ <b id="joinUrl"></b></div>
-      <div class="jl2">แล้วใส่รหัสเกม</div>
-      <div class="pin" id="pinBig"></div>
+      <div class="jtext">
+        <div class="jl">ใช้มือถือเข้าที่ <b id="joinUrl"></b></div>
+        <div class="jl2">แล้วใส่รหัสเกม</div>
+        <div class="pin" id="pinBig"></div>
+      </div>
+      <figure class="qrbox"><div id="qrImg" role="img" aria-label="คิวอาร์โค้ดสำหรับเข้าเกม"></div><figcaption>หรือสแกนเข้าเกมเลย</figcaption></figure>
     </div>
     <div class="lobby-side">
       <div class="lobby-title" id="lobbyTitle"></div>
@@ -192,7 +195,10 @@
     <span class="chip" id="qnum"></span>
     <span class="chip hide" id="qmax"></span>
     <span id="qans" class="chip num" role="status"></span>
-    <span id="qtimer" class="timer num"></span>
+    <div class="ring" id="qring" role="timer" aria-label="เวลาที่เหลือ">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="trk" cx="50" cy="50" r="44" pathLength="100"/><circle class="arc" id="qarc" cx="50" cy="50" r="44" pathLength="100"/></svg>
+      <span id="qtimer" class="timer num"></span>
+    </div>
   </div>
   <h2 id="qprompt" class="qtitle"></h2>
   <p id="qnote" class="award-note"></p>
@@ -353,10 +359,11 @@
 </dialog>
 <input type="file" id="fileIn" accept="application/json,.json" class="hide">
 
-<script src="ui.js?v=20261029134605"></script>
-<script src="fx.js?v=20261029134605"></script>
-<script src="sound.js?v=20261029134605"></script>
-<script src="studio.js?v=20261029134605"></script>
-<script src="host.js?v=20261029134605"></script>
+<script src="ui.js?v=20261029142906"></script>
+<script src="fx.js?v=20261029142906"></script>
+<script src="qr.js"></script>
+<script src="sound.js?v=20261029142906"></script>
+<script src="studio.js?v=20261029142906"></script>
+<script src="host.js?v=20261029142906"></script>
 </body>
 </html>

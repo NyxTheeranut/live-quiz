@@ -18,7 +18,7 @@ const SAMPLE = {
     ['🔥 หัวร้อนระดับเตาปฏิกรณ์', 'อารมณ์เดือดก่อนน้ำในกาต้ม'], ['👻 ผีประจำกลุ่ม', 'ตอนทำงานหาย ตอนกินข้าวมา'],
     ['🤥 ราชาแห่งข้ออ้าง', 'ไม่เคยผิด เพราะมีเหตุผลรองรับเสมอ'], ['💃 ตัวแม่สายมั่น', 'ผิดไม่กลัว กลัวไม่โดดเด่น'],
     ['🐍 นักสืบแห่งปี', 'เรื่องชาวบ้านรู้หมด เรื่องตัวเองไม่รู้เลย'], ['🥇 รางวัลปากบอกไม่ไหว แต่ไปทุกงาน', 'บ่นว่าเหนื่อยทุกวัน แต่กิจกรรมไม่เคยขาด']
-  ].map(([title, note]) => ({ title, note, sec: 90, max: 1, prize: '' })),
+  ].map(([title, note]) => ({ title, note, sec: 90, max: 1, prize: '', prizeNote: '' })),
   groups: [
     { name: 'ทีมขาย', names: ['ก้อง', 'มิ้นท์', 'บอล', 'ฝน'] },
     { name: 'ทีมซัพพอร์ต', names: ['ปอ', 'แพรว', 'เจมส์', 'นุ่น'] },
@@ -56,7 +56,7 @@ function saveToLibrary() {
 }
 function blankSet(kind) {
   const base = { kind, title: DEFAULT_TITLE[kind], settings: { ...DEFAULT_SET } };
-  return { ...base, awards: [{ title: '', note: '', sec: 90, max: 1, prize: '' }], groups: [{ name: '', names: [] }], quiz: [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }] };
+  return { ...base, awards: [{ title: '', note: '', sec: 90, max: 1, prize: '', prizeNote: '' }], groups: [{ name: '', names: [] }], quiz: [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }] };
 }
 const setCount = d => d.kind === 'quiz' ? `${(d.quiz || []).filter(q => q.prompt && q.prompt.trim()).length} ข้อ` : `${(d.awards || []).filter(a => a.title && a.title.trim()).length} รางวัล`;
 function renderSets() {
@@ -97,7 +97,7 @@ const isHeader = (r, re) => re.test((r[0] || '').trim());
 
 function awardsFromRows(rows) {
   return rows.filter((r, i) => !(i === 0 && isHeader(r, /^(รางวัล|ชื่อรางวัล|award|awards|หัวข้อ)$/i)) && (r[0] || '').trim())
-    .map(r => ({ title: r[0].trim(), note: (r[1] || '').trim(), sec: clamp(r[2], 90), max: clampMax(r[3]), prize: (r[4] || '').trim().slice(0, 60) }));
+    .map(r => ({ title: r[0].trim(), note: (r[1] || '').trim(), sec: clamp(r[2], 90), max: clampMax(r[3]), prize: (r[4] || '').trim().slice(0, 60), prizeNote: (r[5] || '').trim().slice(0, 120) }));
 }
 function groupsFromRows(rows) {
   const map = new Map();
@@ -154,6 +154,8 @@ function renderAwards(focus) {
         <input type="text" id="an${i}" data-f="note" maxlength="90" value="${esc(a.note)}" placeholder="เช่น น้ำตาไหลง่ายกว่าน้ำประปา">
         <label for="ap${i}" style="margin-top:12px">ของรางวัล (ไม่บังคับ เฉลยหลังประกาศอันดับ 1)</label>
         <input type="text" id="ap${i}" data-f="prize" maxlength="60" value="${esc(a.prize || '')}" placeholder="เช่น บัตรกำนัล 500 บาท">
+        <label for="apn${i}" style="margin-top:12px">คำอธิบายของรางวัล (โชว์ใต้ชื่อของรางวัล)</label>
+        <input type="text" id="apn${i}" data-f="prizeNote" maxlength="120" value="${esc(a.prizeNote || '')}" placeholder="เช่น ใช้ได้ที่ร้านอาหารในห้างทุกสาขา ถึงสิ้นปี">
       </div>
       <div class="asec">
         <div><label for="as${i}">วินาทีให้โหวต</label><input type="number" id="as${i}" data-f="sec" min="5" max="600" value="${a.sec}"></div>
@@ -286,12 +288,12 @@ $('awardList').addEventListener('click', e => {
     S.awards[i].title = b.dataset.e + ' ' + S.awards[i].title.replace(LEAD_EMOJI, '');
     renderAwards(`[data-i="${i}"] [data-f=title]`); save(); return;
   }
-  const at = listAction(S.awards, i, act, () => ({ title: '', note: '', sec: 90, max: 1, prize: '' }));
+  const at = listAction(S.awards, i, act, () => ({ title: '', note: '', sec: 90, max: 1, prize: '', prizeNote: '' }));
   if (at === null) return;
   renderAwards(`[data-i="${at}"] [data-act="${act === 'del' || act === 'dup' ? 'del' : act}"]:not(:disabled), [data-i="${at}"] [data-f=title]`); save();
 });
 
-$('addAward').onclick = () => { S.awards.push({ title: '', note: '', sec: 90, max: 1, prize: '' }); renderAwards(`[data-i="${S.awards.length - 1}"] [data-f=title]`); save(); };
+$('addAward').onclick = () => { S.awards.push({ title: '', note: '', sec: 90, max: 1, prize: '', prizeNote: '' }); renderAwards(`[data-i="${S.awards.length - 1}"] [data-f=title]`); save(); };
 
 // ผู้เข้าชิง
 function addNames(gi, text) {
@@ -377,7 +379,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu();
 $('btnSample').onclick = () => { closeMenu(); const s = clone(SAMPLE); if (S.kind === 'vote') { S.awards = s.awards; S.groups = s.groups; } else S.quiz = s.quiz; renderAll(); save(); };
 $('btnClear').onclick = async () => {
   closeMenu(); if (!(await UI.confirm('ล้างข้อมูลทั้งหมดของโหมดนี้ใช่ไหม', 'ล้างทั้งหมด'))) return;
-  if (S.kind === 'vote') { S.awards = [{ title: '', note: '', sec: 90, max: 1, prize: '' }]; S.groups = [{ name: '', names: [] }]; }
+  if (S.kind === 'vote') { S.awards = [{ title: '', note: '', sec: 90, max: 1, prize: '', prizeNote: '' }]; S.groups = [{ name: '', names: [] }]; }
   else S.quiz = [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }];
   renderAll(); save();
 };
@@ -388,7 +390,7 @@ $('btnPaste').onclick = () => {
   $('pasteVote').classList.toggle('hide', !vote); $('pasteQuiz').classList.toggle('hide', vote);
   $('pasteMsg').textContent = '';
   if (vote) {
-    $('pasteAwards').value = tsv(S.awards.map(a => [a.title, a.note, a.sec, clampMax(a.max), a.prize || '']));
+    $('pasteAwards').value = tsv(S.awards.map(a => [a.title, a.note, a.sec, clampMax(a.max), a.prize || '', a.prizeNote || '']));
     $('pasteNominees').value = tsv(S.groups.flatMap(g => g.names.map(n => [n, g.name])));
   } else $('pasteQs').value = tsv(S.quiz.map(q => [q.prompt, ...q.choices, q.correct >= 0 ? LETTERS[q.correct] : '', q.sec]));
   $('pasteDlg').showModal();
@@ -479,7 +481,7 @@ function build() {
     S.groups.forEach(g => g.names.forEach(n => { choices.push(n); groups.push(g.name.trim()); }));
     if (choices.length < 2) return { error: 'ใส่ผู้เข้าชิงอย่างน้อย 2 คนก่อนนะ', focus: '#groupList [data-f=gadd]' };
     return { kind: 'vote', title, settings: { ...S.settings }, questions: awards.map(a => ({
-      prompt: a.title.trim().replace(/^\d+[.)]\s*/, ''), note: a.note.trim(), prize: (a.prize || '').trim(), choices, groups, duration: clamp(a.sec, 90), max_votes: Math.min(clampMax(a.max), choices.length) })) };
+      prompt: a.title.trim().replace(/^\d+[.)]\s*/, ''), note: a.note.trim(), prize: (a.prize || '').trim(), prizeNote: (a.prizeNote || '').trim(), choices, groups, duration: clamp(a.sec, 90), max_votes: Math.min(clampMax(a.max), choices.length) })) };
   }
   const out = [];
   for (let i = 0; i < S.quiz.length; i++) {
@@ -511,8 +513,8 @@ function parseAwardLine(raw) {
   else if (l.includes('\t')) f = l.split('\t');
   else { const i = l.indexOf(' - '); f = i > 0 ? [l.slice(0, i), l.slice(i + 3)] : [l]; }
   f = f.map(x => x.trim());
-  const num = f.slice(2).filter(x => /^\d+$/.test(x)), prize = f.slice(2).find(x => x && !/^\d+$/.test(x)) || '';   // ช่องที่ไม่ใช่ตัวเลข = ของรางวัล
-  return { title: f[0].slice(0, 60), note: (f[1] || '').slice(0, 90), sec: clamp(num[0], 90), max: clampMax(num[1]), prize: prize.slice(0, 60) };
+  const num = f.slice(2).filter(x => /^\d+$/.test(x)), txt = f.slice(2).filter(x => x && !/^\d+$/.test(x)), prize = txt[0] || '';   // ช่องที่ไม่ใช่ตัวเลข = ของรางวัล
+  return { title: f[0].slice(0, 60), note: (f[1] || '').slice(0, 90), sec: clamp(num[0], 90), max: clampMax(num[1]), prize: prize.slice(0, 60), prizeNote: (txt[1] || '').slice(0, 120) };
 }
 function bulkParseVote(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim());
@@ -604,7 +606,7 @@ const BULK = {
     example: `รางวัล
 😭 ขี้แงแห่งปี | น้ำตาไหลง่ายกว่าน้ำประปา
 🗣️ ปากแจ๋วแห่งปี | เรื่องเมาท์ไม่เคยพัก | 60 | 3
-👑 เจ้าแม่ดราม่า | เรื่องเล่า 1 นาที ขยายได้ 3 ชั่วโมง | บัตรกำนัล 500 บาท
+👑 เจ้าแม่ดราม่า | เรื่องเล่า 1 นาที ขยายได้ 3 ชั่วโมง | บัตรกำนัล 500 บาท | ใช้ได้ทุกสาขาถึงสิ้นปี
 
 ผู้เข้าชิง
 ทีมขาย: ก้อง, มิ้นท์, บอล
@@ -615,7 +617,7 @@ const BULK = {
       ['k2', 'คำจำกัดความ', 'อธิบายว่ารางวัลนี้ให้ใคร'],
       ['k3', 'วินาที', 'เวลาโหวต (ไม่บังคับ)'],
       ['k4', 'โหวตได้กี่คน', '(ไม่บังคับ)'],
-      ['k7', 'ของรางวัล', 'เฉลยหลังอันดับ 1 (ไม่บังคับ)'],
+      ['k7', 'ของรางวัล + คำอธิบาย', 'เฉลยหลังอันดับ 1 (ไม่บังคับ)'],
       ['k5', 'ชื่อทีม', 'ก่อนเครื่องหมาย :'],
       ['k6', 'รายชื่อคน', 'คั่นด้วยคอมมา ไม่มีทีมพิมพ์ชื่อเดียวได้']
     ],
@@ -624,7 +626,7 @@ const BULK = {
 
 รูปแบบ:
 รางวัล
-<อีโมจิ> <ชื่อรางวัล> | <คำจำกัดความสั้น ๆ> | <ของรางวัล ถ้ามี>
+<อีโมจิ> <ชื่อรางวัล> | <คำจำกัดความสั้น ๆ> | <ของรางวัล ถ้ามี> | <คำอธิบายของรางวัล ถ้ามี>
 (หนึ่งรางวัลต่อหนึ่งบรรทัด)
 
 ผู้เข้าชิง
@@ -678,7 +680,7 @@ function bulkSerialize() {
     const aw = S.awards.filter(a => a.title.trim()).map(a => {
       const f = [a.title.trim(), (a.note || '').trim()];
       if (a.sec !== 90 || clampMax(a.max) !== 1) f.push(a.sec, clampMax(a.max));
-      if ((a.prize || '').trim()) f.push(a.prize.trim());
+      if ((a.prize || '').trim()) { f.push(a.prize.trim()); if ((a.prizeNote || '').trim()) f.push(a.prizeNote.trim()); }
       return f.join(' | ').replace(/( \| )+$/, '');
     });
     const gr = S.groups.filter(g => g.names.length).map(g => (g.name.trim() ? g.name.trim() + ': ' : '') + g.names.join(', '));

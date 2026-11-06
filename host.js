@@ -6,6 +6,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+  if (id !== 'h-prize') $('prizeBack').classList.add('hide');   // ปุ่มอยู่นอกหน้า (กันถูกปุ่มแตะทั้งจอบัง)
   document.body.classList.toggle('lockq', id === 'h-q' || id === 'h-board');
   if (id !== 'h-reveal' && id !== 'h-board') { setNext(null, false); tapResolve = null; nextAction = null; }
   if (id !== 'h-q') leaveFog();            // เปิดกราฟจริงคืนก็ต่อเมื่อออกจากหน้าโหวตไปแล้วเท่านั้น
@@ -800,13 +801,13 @@ async function revealVote(i, q, last) {
 
 // ---------- หน้าของรางวัล (แยกจากหน้าผู้ชนะ) ----------
 const prizeSeen = new Set();                                    // ข้อที่เปิดของรางวัลไปแล้ว: ย้อนกลับมาดูใหม่ให้ขึ้นเลย ไม่ต้องลุ้นซ้ำ
-const prizeHtml = (prize, title) => '<div class="prays on" aria-hidden="true"></div><div class="pq"><div class="pl">ของรางวัล · ' + esc(title) + '</div><div class="pv slam"><i class="ph-fill ph-gift" aria-hidden="true"></i>' + esc(prize) + '</div></div>';
+const prizeHtml = (prize, title, note) => '<div class="prays on" aria-hidden="true"></div><div class="pq"><div class="pl">ของรางวัล · ' + esc(title) + '</div><div class="pv slam"><i class="ph-fill ph-gift" aria-hidden="true"></i>' + esc(prize) + '</div>' + (note ? '<div class="pd">' + esc(note) + '</div>' : '') + '</div>';
 async function prizePage(i, q, nextLabel) {
   const pz = $('prize'), prize = q.prize.trim(), tok = ++introTok;
   pz.className = 'prize big'; show('h-prize'); Sound.stopMusic && Sound.stopMusic(.3);
   $('prizeBack').classList.remove('hide');
   if (prizeSeen.has(i) || reduceMotion) {
-    pz.innerHTML = prizeHtml(prize, q.prompt); prizeSeen.add(i);
+    pz.innerHTML = prizeHtml(prize, q.prompt, (q.prizeNote || '').trim()); prizeSeen.add(i);
     return setNext(nextLabel, true, 600);
   }
   // ยังไม่เคยเปิด: กล่องของขวัญลอยนิ่ง ๆ รอแตะ แล้วลุ้น สั่นแรงขึ้น แฟลชขาว เปิดกล่อง เฉลยตัวใหญ่
@@ -822,7 +823,7 @@ async function prizePage(i, q, nextLabel) {
   sfx.crash(); sfx.crash(); pz.classList.add('open');
   await wait(260);
   if (tok !== introTok) return;
-  pz.innerHTML = prizeHtml(prize, q.prompt) + '<div class="pflash go" aria-hidden="true"></div>';
+  pz.innerHTML = prizeHtml(prize, q.prompt, (q.prizeNote || '').trim()) + '<div class="pflash go" aria-hidden="true"></div>';
   prizeSeen.add(i); $('prizeBack').classList.remove('hide');
   sfx.win(); confetti(); setTimeout(confetti, 700);
   setNext(nextLabel, true, 900);

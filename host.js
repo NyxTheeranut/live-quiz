@@ -1,7 +1,7 @@
 // Host game engine. Uses $, esc, LETTERS, SHAPES from studio.js (loaded first).
 const { SUPABASE_URL, SUPABASE_KEY } = window.QUIZ_CONFIG;
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const SCREENS = ['h-lock', 'h-setup', 'h-lobby', 'h-pre', 'h-q', 'h-reveal', 'h-board', 'h-end'];
+const SCREENS = ['h-lock', 'h-setup', 'h-lobby', 'h-pre', 'h-q', 'h-reveal', 'h-prize', 'h-board', 'h-end'];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
@@ -627,7 +627,6 @@ async function reveal() {
     $('stage').classList.add('pending'); $('stage').classList.remove('pop', 'won'); $('stage').dataset.rank = '';
     $('drum').classList.remove('done'); $('drum').textContent = 'กำลังนับคะแนน...';
     $('winner').textContent = '...'; $('winnerSub').textContent = ''; $('pod').innerHTML = ''; $('runners').innerHTML = ''; $('placed').innerHTML = '';
-    $('prize').classList.add('hide'); $('prize').innerHTML = '';
     show('h-reveal');
   }
   await host('set_phase', { p_phase: 'reveal', p_q: i });
@@ -787,29 +786,53 @@ async function revealVote(i, q, last) {
   $('winner').textContent = winText;
   $('winnerSub').textContent = !winners.length ? '' : (winners.length > 1 ? `เสมอกัน ${topN} คะแนน` : `${topN} คะแนน จากผู้โหวต ${data.answered} คน`);
   const label = r => q.choices[r.k], sub = r => (q.groups && q.groups[r.k]) || '';
-  renderPodium($('pod'), ranked.filter(r => r.n > 0).map(r => ({ label: label(r), sub: sub(r), n: r.n })), (q.prize || '').trim() && winners.length ? 130 : 230);   // มีของรางวัลใต้ชื่อ: เตี้ยลงให้พอดีจอ
+  renderPodium($('pod'), ranked.filter(r => r.n > 0).map(r => ({ label: label(r), sub: sub(r), n: r.n })));
   $('runners').innerHTML = ranked.filter(r => r.n > 0).slice(3, 6)
     .map((r, k) => `<li style="animation-delay:${.9 + k * .12}s"><span class="aw">${k + 4}. ${esc(label(r))}</span><b>${r.n}</b></li>`).join('');
   if (winners.length) { sfx.crash(); sfx.win(); confetti(); } else Sound.stopDrum();
   await send({ type: 'reveal', kind: 'vote', idx: i, dist: data.dist, answered: data.answered });
-  const pz = $('prize'), prize = (q.prize || '').trim();
-  pz.classList.add('hide'); pz.innerHTML = '';
-  if (!prize || !winners.length) return setNext(nextLabel, true, 900);
-  const showPrize = () => { pz.innerHTML = `<div class="pl">ของรางวัลคือ</div><div class="pv pop"><i class="ph-fill ph-gift" aria-hidden="true"></i>${esc(prize)}</div>`; };
-  pz.classList.remove('hide');
-  if (replayMode || reduceMotion || !c.ceremony) { showPrize(); return setNext(nextLabel, true, 900); }
-  setNext(null, false);
-  const tok = introTok;
-  await wait(1800);                                              // ให้คนดูอันดับ 1 สักครู่ก่อนไปฉากถัดไป
-  if (tok !== introTok) return;
+  // รางวัลนี้มีของรางวัล: หน้าผู้ชนะจบตรงนี้ แตะเพื่อไปหน้าของรางวัลที่แยกออกมาอีกหน้า
+  if ((q.prize || '').trim() && winners.length) {
+    setNext('แตะที่หน้าจอเพื่อดูของรางวัล', true, 900);
+    nextAction = () => prizePage(i, q, nextLabel);
+  } else setNext(nextLabel, true, 900);
+}
+
+// ---------- หน้าของรางวัล (แยกจากหน้าผู้ชนะ) ----------
+const prizeSeen = new Set();                                    // ข้อที่เปิดของรางวัลไปแล้ว: ย้อนกลับมาดูใหม่ให้ขึ้นเลย ไม่ต้องลุ้นซ้ำ
+const prizeHtml = (prize, title) => '<div class="prays on" aria-hidden="true"></div><div class="pq"><div class="pl">ของรางวัล · ' + esc(title) + '</div><div class="pv slam"><i class="ph-fill ph-gift" aria-hidden="true"></i>' + esc(prize) + '</div></div>';
+async function prizePage(i, q, nextLabel) {
+  const pz = $('prize'), prize = q.prize.trim(), tok = ++introTok;
+  pz.className = 'prize big'; show('h-prize'); Sound.stopMusic && Sound.stopMusic(.3);
+  $('prizeBack').classList.remove('hide');
+  if (prizeSeen.has(i) || reduceMotion) {
+    pz.innerHTML = prizeHtml(prize, q.prompt); prizeSeen.add(i);
+    return setNext(nextLabel, true, 600);
+  }
+  // ยังไม่เคยเปิด: กล่องของขวัญลอยนิ่ง ๆ รอแตะ แล้วลุ้น สั่นแรงขึ้น แฟลชขาว เปิดกล่อง เฉลยตัวใหญ่
+  pz.innerHTML = '<div class="prays idle" aria-hidden="true"></div><div class="gwrap idle"><i class="ph-fill ph-gift gbox idle" aria-hidden="true"></i></div><div class="pl">ของรางวัลของ ' + esc(q.prompt) + ' คืออะไรนะ</div>';
+  sfx.pop();
   await waitTap('แตะที่หน้าจอเพื่อเปิดของรางวัล');
   if (tok !== introTok) return;
-  pz.innerHTML = '<div class="pl wait">รางวัลคือออออ</div>';
-  Sound.drumroll(1.8); await wait(1800);
+  $('prizeBack').classList.add('hide');
+  pz.innerHTML = '<div class="prays" aria-hidden="true"></div><div class="gwrap"><i class="ph-fill ph-gift gbox" aria-hidden="true"></i></div><div class="pl wait">รางวัลคือออออ</div><div class="pflash" aria-hidden="true"></div>';
+  Sound.drumroll(3.4);
+  await wait(3400);
   if (tok !== introTok) return;
-  sfx.crash(); sfx.win(); showPrize(); confetti();
+  sfx.crash(); sfx.crash(); pz.classList.add('open');
+  await wait(260);
+  if (tok !== introTok) return;
+  pz.innerHTML = prizeHtml(prize, q.prompt) + '<div class="pflash go" aria-hidden="true"></div>';
+  prizeSeen.add(i); $('prizeBack').classList.remove('hide');
+  sfx.win(); confetti(); setTimeout(confetti, 700);
   setNext(nextLabel, true, 900);
 }
+// กลับจากหน้าของรางวัลไปหน้าผู้ชนะ (ไม่เล่นพิธีซ้ำ)
+$('prizeBack').onclick = async () => {
+  introTok++; Sound.stopDrum && Sound.stopDrum(); setNext(null, false); tapResolve = null; nextAction = null;
+  revealing = false; replayMode = true;
+  try { await reveal(); } finally { replayMode = false; }
+};
 // ปุ่มเต็มจอ "แตะที่ไหนก็ได้เพื่อไปต่อ": เปิดให้กดได้หลังผลขึ้นครบ + หน่วงสั้น ๆ กันเผลอดับเบิลคลิกข้ามผล
 function setNext(label, on, delay = 0) {
   clearTimeout(setNext.t);

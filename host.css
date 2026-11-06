@@ -540,3 +540,42 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .prize .pl.wait::after { content: ''; display: inline-block; width: 1.6em; text-align: left; animation: dots 1.2s steps(4, end) infinite; }
 @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
 @media (prefers-reduced-motion: reduce) { .prize .pv.pop, .prize .pl.wait::after { animation: none; } }
+
+/* ของรางวัลแบบเต็มจอ: มืดลง กล่องของขวัญสั่นแรงขึ้น แฟลช เปิดกล่อง เฉลยตัวใหญ่ */
+.prize.big { position: fixed; inset: 0; z-index: 38; margin: 0; min-height: 0; display: grid; place-content: center; justify-items: center; gap: 3vh; padding: 24px; overflow: hidden;
+  background: radial-gradient(70% 60% at 50% 46%, color-mix(in srgb, var(--bg-glow) 60%, var(--bg)), var(--bg) 78%); animation: pdark .6s var(--ease) both; }
+.prize.big.settle { animation: pfade .5s var(--ease) both; }
+@keyframes pdark { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pfade { to { opacity: 0; } }
+.prays { position: absolute; left: 50%; top: 46%; width: 190vmax; aspect-ratio: 1; margin: -95vmax 0 0 -95vmax; pointer-events: none; opacity: 0;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--gold) 34%, transparent) 0 6deg, transparent 6deg 20deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 38%); mask-image: radial-gradient(circle, #000 0, transparent 38%); animation: pspin 22s linear infinite, pglow 3.4s ease-in forwards; }
+.prays.on { opacity: .9; animation: pspin 14s linear infinite; }
+@keyframes pspin { to { transform: rotate(360deg); } }
+@keyframes pglow { to { opacity: .8; } }
+.gwrap { position: relative; display: grid; place-items: center; animation: pgrow 3.4s cubic-bezier(.5, 0, 1, .6) forwards; }
+.gbox { font-size: clamp(120px, 30vh, 300px); line-height: 1; color: var(--gold); display: block; filter: drop-shadow(0 0 40px color-mix(in srgb, var(--gold) 70%, transparent)); animation: pshake .11s linear infinite alternate, pamp 3.4s ease-in forwards; }
+@keyframes pgrow { from { transform: scale(.7); } to { transform: scale(1.35); } }
+@keyframes pshake { from { rotate: -1deg; translate: -2px 0; } to { rotate: 1deg; translate: 2px 0; } }
+@keyframes pamp { 0%, 30% { filter: drop-shadow(0 0 16px color-mix(in srgb, var(--gold) 40%, transparent)); } 100% { filter: drop-shadow(0 0 90px var(--gold)) brightness(1.5); } }
+.prize.big.open .gwrap { animation: popout .26s ease-in forwards; }
+@keyframes popout { to { transform: scale(2.6); opacity: 0; } }
+.prize.big .pl { position: relative; font-size: clamp(1.5rem, 4.2vh, 2.6rem); letter-spacing: .02em; }
+.prize.big .pv { position: relative; font-size: clamp(2.6rem, 11vh, 7rem); line-height: 1.1; text-align: center; max-width: 92vw; text-shadow: 0 0 40px color-mix(in srgb, var(--gold) 60%, transparent), 0 4px 18px var(--bg); }
+.prize.big .pv.slam { animation: slam .7s cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes slam { from { transform: scale(3); opacity: 0; filter: blur(14px); } 60% { opacity: 1; filter: blur(0); } to { transform: scale(1); opacity: 1; } }
+.pflash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.prize.big.open .pflash { animation: flash .5s ease-out both; }
+.pflash.go { animation: flash .6s ease-out both; }
+@keyframes flash { 0% { opacity: .95; } 100% { opacity: 0; } }
+/* หลังเปิดกล่อง จอสะเทือนสั้น ๆ */
+.pq { position: relative; display: grid; justify-items: center; gap: 3vh; animation: quake .6s linear; }
+@keyframes quake { 0%, 100% { translate: 0 0; } 15% { translate: -12px 7px; } 30% { translate: 10px -8px; } 45% { translate: -8px -5px; } 60% { translate: 7px 6px; } 80% { translate: -3px 2px; } }
+@media (prefers-reduced-motion: reduce) { .prize.big, .prays, .gwrap, .gbox, .prize.big .pv.slam, .pflash, .pq { animation: none; } }
+
+.prizeback { position: fixed; left: 16px; top: 22px; z-index: 45; }
+.prays.idle { opacity: .35; animation: pspin 40s linear infinite; }
+.gwrap.idle { animation: none; transform: scale(1); }
+.gbox.idle { animation: pfloat 3s ease-in-out infinite alternate; filter: drop-shadow(0 0 28px color-mix(in srgb, var(--gold) 45%, transparent)); }
+@keyframes pfloat { from { translate: 0 -8px; } to { translate: 0 8px; } }
+@media (prefers-reduced-motion: reduce) { .gbox.idle, .prays.idle { animation: none; } }

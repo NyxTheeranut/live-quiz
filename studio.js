@@ -18,7 +18,7 @@ const SAMPLE = {
     ['🔥 หัวร้อนระดับเตาปฏิกรณ์', 'อารมณ์เดือดก่อนน้ำในกาต้ม'], ['👻 ผีประจำกลุ่ม', 'ตอนทำงานหาย ตอนกินข้าวมา'],
     ['🤥 ราชาแห่งข้ออ้าง', 'ไม่เคยผิด เพราะมีเหตุผลรองรับเสมอ'], ['💃 ตัวแม่สายมั่น', 'ผิดไม่กลัว กลัวไม่โดดเด่น'],
     ['🐍 นักสืบแห่งปี', 'เรื่องชาวบ้านรู้หมด เรื่องตัวเองไม่รู้เลย'], ['🥇 รางวัลปากบอกไม่ไหว แต่ไปทุกงาน', 'บ่นว่าเหนื่อยทุกวัน แต่กิจกรรมไม่เคยขาด']
-  ].map(([title, note]) => ({ title, note, sec: 90, max: 1 })),
+  ].map(([title, note]) => ({ title, note, sec: 90, max: 1, prize: '' })),
   groups: [
     { name: 'ทีมขาย', names: ['ก้อง', 'มิ้นท์', 'บอล', 'ฝน'] },
     { name: 'ทีมซัพพอร์ต', names: ['ปอ', 'แพรว', 'เจมส์', 'นุ่น'] },
@@ -56,7 +56,7 @@ function saveToLibrary() {
 }
 function blankSet(kind) {
   const base = { kind, title: DEFAULT_TITLE[kind], settings: { ...DEFAULT_SET } };
-  return { ...base, awards: [{ title: '', note: '', sec: 90, max: 1 }], groups: [{ name: '', names: [] }], quiz: [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }] };
+  return { ...base, awards: [{ title: '', note: '', sec: 90, max: 1, prize: '' }], groups: [{ name: '', names: [] }], quiz: [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }] };
 }
 const setCount = d => d.kind === 'quiz' ? `${(d.quiz || []).filter(q => q.prompt && q.prompt.trim()).length} ข้อ` : `${(d.awards || []).filter(a => a.title && a.title.trim()).length} รางวัล`;
 function renderSets() {
@@ -97,7 +97,7 @@ const isHeader = (r, re) => re.test((r[0] || '').trim());
 
 function awardsFromRows(rows) {
   return rows.filter((r, i) => !(i === 0 && isHeader(r, /^(รางวัล|ชื่อรางวัล|award|awards|หัวข้อ)$/i)) && (r[0] || '').trim())
-    .map(r => ({ title: r[0].trim(), note: (r[1] || '').trim(), sec: clamp(r[2], 90), max: clampMax(r[3]) }));
+    .map(r => ({ title: r[0].trim(), note: (r[1] || '').trim(), sec: clamp(r[2], 90), max: clampMax(r[3]), prize: (r[4] || '').trim().slice(0, 60) }));
 }
 function groupsFromRows(rows) {
   const map = new Map();
@@ -152,6 +152,8 @@ function renderAwards(focus) {
         </div>
         <label for="an${i}" style="margin-top:12px">คำจำกัดความ (โชว์ใต้ชื่อรางวัล)</label>
         <input type="text" id="an${i}" data-f="note" maxlength="90" value="${esc(a.note)}" placeholder="เช่น น้ำตาไหลง่ายกว่าน้ำประปา">
+        <label for="ap${i}" style="margin-top:12px">ของรางวัล (ไม่บังคับ เฉลยหลังประกาศอันดับ 1)</label>
+        <input type="text" id="ap${i}" data-f="prize" maxlength="60" value="${esc(a.prize || '')}" placeholder="เช่น บัตรกำนัล 500 บาท">
       </div>
       <div class="asec">
         <div><label for="as${i}">วินาทีให้โหวต</label><input type="number" id="as${i}" data-f="sec" min="5" max="600" value="${a.sec}"></div>
@@ -284,12 +286,12 @@ $('awardList').addEventListener('click', e => {
     S.awards[i].title = b.dataset.e + ' ' + S.awards[i].title.replace(LEAD_EMOJI, '');
     renderAwards(`[data-i="${i}"] [data-f=title]`); save(); return;
   }
-  const at = listAction(S.awards, i, act, () => ({ title: '', note: '', sec: 90, max: 1 }));
+  const at = listAction(S.awards, i, act, () => ({ title: '', note: '', sec: 90, max: 1, prize: '' }));
   if (at === null) return;
   renderAwards(`[data-i="${at}"] [data-act="${act === 'del' || act === 'dup' ? 'del' : act}"]:not(:disabled), [data-i="${at}"] [data-f=title]`); save();
 });
 
-$('addAward').onclick = () => { S.awards.push({ title: '', note: '', sec: 90, max: 1 }); renderAwards(`[data-i="${S.awards.length - 1}"] [data-f=title]`); save(); };
+$('addAward').onclick = () => { S.awards.push({ title: '', note: '', sec: 90, max: 1, prize: '' }); renderAwards(`[data-i="${S.awards.length - 1}"] [data-f=title]`); save(); };
 
 // ผู้เข้าชิง
 function addNames(gi, text) {
@@ -375,7 +377,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu();
 $('btnSample').onclick = () => { closeMenu(); const s = clone(SAMPLE); if (S.kind === 'vote') { S.awards = s.awards; S.groups = s.groups; } else S.quiz = s.quiz; renderAll(); save(); };
 $('btnClear').onclick = async () => {
   closeMenu(); if (!(await UI.confirm('ล้างข้อมูลทั้งหมดของโหมดนี้ใช่ไหม', 'ล้างทั้งหมด'))) return;
-  if (S.kind === 'vote') { S.awards = [{ title: '', note: '', sec: 90, max: 1 }]; S.groups = [{ name: '', names: [] }]; }
+  if (S.kind === 'vote') { S.awards = [{ title: '', note: '', sec: 90, max: 1, prize: '' }]; S.groups = [{ name: '', names: [] }]; }
   else S.quiz = [{ prompt: '', choices: ['', '', '', ''], correct: -1, sec: 20 }];
   renderAll(); save();
 };
@@ -386,7 +388,7 @@ $('btnPaste').onclick = () => {
   $('pasteVote').classList.toggle('hide', !vote); $('pasteQuiz').classList.toggle('hide', vote);
   $('pasteMsg').textContent = '';
   if (vote) {
-    $('pasteAwards').value = tsv(S.awards.map(a => [a.title, a.note, a.sec, clampMax(a.max)]));
+    $('pasteAwards').value = tsv(S.awards.map(a => [a.title, a.note, a.sec, clampMax(a.max), a.prize || '']));
     $('pasteNominees').value = tsv(S.groups.flatMap(g => g.names.map(n => [n, g.name])));
   } else $('pasteQs').value = tsv(S.quiz.map(q => [q.prompt, ...q.choices, q.correct >= 0 ? LETTERS[q.correct] : '', q.sec]));
   $('pasteDlg').showModal();
@@ -477,7 +479,7 @@ function build() {
     S.groups.forEach(g => g.names.forEach(n => { choices.push(n); groups.push(g.name.trim()); }));
     if (choices.length < 2) return { error: 'ใส่ผู้เข้าชิงอย่างน้อย 2 คนก่อนนะ', focus: '#groupList [data-f=gadd]' };
     return { kind: 'vote', title, settings: { ...S.settings }, questions: awards.map(a => ({
-      prompt: a.title.trim().replace(/^\d+[.)]\s*/, ''), note: a.note.trim(), choices, groups, duration: clamp(a.sec, 90), max_votes: Math.min(clampMax(a.max), choices.length) })) };
+      prompt: a.title.trim().replace(/^\d+[.)]\s*/, ''), note: a.note.trim(), prize: (a.prize || '').trim(), choices, groups, duration: clamp(a.sec, 90), max_votes: Math.min(clampMax(a.max), choices.length) })) };
   }
   const out = [];
   for (let i = 0; i < S.quiz.length; i++) {
@@ -509,7 +511,8 @@ function parseAwardLine(raw) {
   else if (l.includes('\t')) f = l.split('\t');
   else { const i = l.indexOf(' - '); f = i > 0 ? [l.slice(0, i), l.slice(i + 3)] : [l]; }
   f = f.map(x => x.trim());
-  return { title: f[0].slice(0, 60), note: (f[1] || '').slice(0, 90), sec: clamp(f[2], 90), max: clampMax(f[3]) };
+  const num = f.slice(2).filter(x => /^\d+$/.test(x)), prize = f.slice(2).find(x => x && !/^\d+$/.test(x)) || '';   // ช่องที่ไม่ใช่ตัวเลข = ของรางวัล
+  return { title: f[0].slice(0, 60), note: (f[1] || '').slice(0, 90), sec: clamp(num[0], 90), max: clampMax(num[1]), prize: prize.slice(0, 60) };
 }
 function bulkParseVote(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim());
@@ -590,7 +593,7 @@ function paintExample(kind, text) {
     }
     if (/^(รางวัล|ผู้เข้าชิง)$/.test(l)) { mode = l; return `<b class="hd">${esc(l)}</b>`; }
     if (!l.trim()) return '';
-    if (mode === 'รางวัล') return l.split(' | ').map((p, n) => sp('k' + (n + 1), p)).join(' | ');
+    if (mode === 'รางวัล') return l.split(' | ').map((p, n) => sp(n >= 2 && !/^\d+$/.test(p) ? 'k7' : 'k' + (n + 1), p)).join(' | ');
     const m = l.match(/^([^:]+): (.*)$/);
     return m ? sp('k5', m[1]) + ': ' + sp('k6', m[2]) : sp('k6', l);
   }).join('\n');
@@ -601,7 +604,7 @@ const BULK = {
     example: `รางวัล
 😭 ขี้แงแห่งปี | น้ำตาไหลง่ายกว่าน้ำประปา
 🗣️ ปากแจ๋วแห่งปี | เรื่องเมาท์ไม่เคยพัก | 60 | 3
-👑 เจ้าแม่ดราม่า | เรื่องเล่า 1 นาที ขยายได้ 3 ชั่วโมง
+👑 เจ้าแม่ดราม่า | เรื่องเล่า 1 นาที ขยายได้ 3 ชั่วโมง | บัตรกำนัล 500 บาท
 
 ผู้เข้าชิง
 ทีมขาย: ก้อง, มิ้นท์, บอล
@@ -612,6 +615,7 @@ const BULK = {
       ['k2', 'คำจำกัดความ', 'อธิบายว่ารางวัลนี้ให้ใคร'],
       ['k3', 'วินาที', 'เวลาโหวต (ไม่บังคับ)'],
       ['k4', 'โหวตได้กี่คน', '(ไม่บังคับ)'],
+      ['k7', 'ของรางวัล', 'เฉลยหลังอันดับ 1 (ไม่บังคับ)'],
       ['k5', 'ชื่อทีม', 'ก่อนเครื่องหมาย :'],
       ['k6', 'รายชื่อคน', 'คั่นด้วยคอมมา ไม่มีทีมพิมพ์ชื่อเดียวได้']
     ],
@@ -620,7 +624,7 @@ const BULK = {
 
 รูปแบบ:
 รางวัล
-<อีโมจิ> <ชื่อรางวัล> | <คำจำกัดความสั้น ๆ>
+<อีโมจิ> <ชื่อรางวัล> | <คำจำกัดความสั้น ๆ> | <ของรางวัล ถ้ามี>
 (หนึ่งรางวัลต่อหนึ่งบรรทัด)
 
 ผู้เข้าชิง
@@ -674,6 +678,7 @@ function bulkSerialize() {
     const aw = S.awards.filter(a => a.title.trim()).map(a => {
       const f = [a.title.trim(), (a.note || '').trim()];
       if (a.sec !== 90 || clampMax(a.max) !== 1) f.push(a.sec, clampMax(a.max));
+      if ((a.prize || '').trim()) f.push(a.prize.trim());
       return f.join(' | ').replace(/( \| )+$/, '');
     });
     const gr = S.groups.filter(g => g.names.length).map(g => (g.name.trim() ? g.name.trim() + ': ' : '') + g.names.join(', '));

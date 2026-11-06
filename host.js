@@ -627,6 +627,7 @@ async function reveal() {
     $('stage').classList.add('pending'); $('stage').classList.remove('pop', 'won'); $('stage').dataset.rank = '';
     $('drum').classList.remove('done'); $('drum').textContent = 'กำลังนับคะแนน...';
     $('winner').textContent = '...'; $('winnerSub').textContent = ''; $('pod').innerHTML = ''; $('runners').innerHTML = ''; $('placed').innerHTML = '';
+    $('prize').classList.add('hide'); $('prize').innerHTML = '';
     show('h-reveal');
   }
   await host('set_phase', { p_phase: 'reveal', p_q: i });
@@ -786,12 +787,28 @@ async function revealVote(i, q, last) {
   $('winner').textContent = winText;
   $('winnerSub').textContent = !winners.length ? '' : (winners.length > 1 ? `เสมอกัน ${topN} คะแนน` : `${topN} คะแนน จากผู้โหวต ${data.answered} คน`);
   const label = r => q.choices[r.k], sub = r => (q.groups && q.groups[r.k]) || '';
-  renderPodium($('pod'), ranked.filter(r => r.n > 0).map(r => ({ label: label(r), sub: sub(r), n: r.n })));
+  renderPodium($('pod'), ranked.filter(r => r.n > 0).map(r => ({ label: label(r), sub: sub(r), n: r.n })), (q.prize || '').trim() && winners.length ? 130 : 230);   // มีของรางวัลใต้ชื่อ: เตี้ยลงให้พอดีจอ
   $('runners').innerHTML = ranked.filter(r => r.n > 0).slice(3, 6)
     .map((r, k) => `<li style="animation-delay:${.9 + k * .12}s"><span class="aw">${k + 4}. ${esc(label(r))}</span><b>${r.n}</b></li>`).join('');
-  setNext(nextLabel, true, 900);
   if (winners.length) { sfx.crash(); sfx.win(); confetti(); } else Sound.stopDrum();
   await send({ type: 'reveal', kind: 'vote', idx: i, dist: data.dist, answered: data.answered });
+  const pz = $('prize'), prize = (q.prize || '').trim();
+  pz.classList.add('hide'); pz.innerHTML = '';
+  if (!prize || !winners.length) return setNext(nextLabel, true, 900);
+  const showPrize = () => { pz.innerHTML = `<div class="pl">ของรางวัลคือ</div><div class="pv pop"><i class="ph-fill ph-gift" aria-hidden="true"></i>${esc(prize)}</div>`; };
+  pz.classList.remove('hide');
+  if (replayMode || reduceMotion || !c.ceremony) { showPrize(); return setNext(nextLabel, true, 900); }
+  setNext(null, false);
+  const tok = introTok;
+  await wait(1800);                                              // ให้คนดูอันดับ 1 สักครู่ก่อนไปฉากถัดไป
+  if (tok !== introTok) return;
+  await waitTap('แตะที่หน้าจอเพื่อเปิดของรางวัล');
+  if (tok !== introTok) return;
+  pz.innerHTML = '<div class="pl wait">รางวัลคือออออ</div>';
+  Sound.drumroll(1.8); await wait(1800);
+  if (tok !== introTok) return;
+  sfx.crash(); sfx.win(); showPrize(); confetti();
+  setNext(nextLabel, true, 900);
 }
 // ปุ่มเต็มจอ "แตะที่ไหนก็ได้เพื่อไปต่อ": เปิดให้กดได้หลังผลขึ้นครบ + หน่วงสั้น ๆ กันเผลอดับเบิลคลิกข้ามผล
 function setNext(label, on, delay = 0) {

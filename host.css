@@ -427,14 +427,14 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .bulkex .exhead { margin-bottom: 8px; }
 .bulkex pre { max-height: none; overflow: visible; margin: 0; padding: 12px 14px; font-size: .88rem; line-height: 1.7; }
 .bulkex pre .k1 { color: var(--c1); } .bulkex pre .k2 { color: var(--c2); } .bulkex pre .k3 { color: var(--c3); }
-.bulkex pre .k4 { color: var(--c4); } .bulkex pre .k5 { color: var(--c5); } .bulkex pre .k6 { color: var(--c6); }
+.bulkex pre .k4 { color: var(--c4); } .bulkex pre .k5 { color: var(--c5); } .bulkex pre .k6 { color: var(--c6); } .bulkex pre .k7 { color: var(--c7); }
 .bulkex pre .hd { color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
 .legend { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; font-size: .86rem; line-height: 1.35; }
 .legend li { display: grid; }
 .legend b { font-family: var(--font-display); }
 .legend span { color: var(--muted); }
 .legend .k1 { color: var(--c1); } .legend .k2 { color: var(--c2); } .legend .k3 { color: var(--c3); }
-.legend .k4 { color: var(--c4); } .legend .k5 { color: var(--c5); } .legend .k6 { color: var(--c6); }
+.legend .k4 { color: var(--c4); } .legend .k5 { color: var(--c5); } .legend .k6 { color: var(--c6); } .legend .k7 { color: var(--c7); }
 .bulkwhy { margin: 10px 0 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }
 .bulkgrid .exbtns { margin-top: 12px; }
 @media (min-width: 900px) { .bulkgrid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 22px; } }
@@ -530,3 +530,13 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .lockcard .remember input { width: 20px; height: 20px; accent-color: var(--c3); }
 .lockcard .stack > * , .lockcard.stack > * { margin: 0; }
 .lockcard.stack { display: grid; gap: 14px; }
+
+/* ของรางวัล: เฉลยหลังประกาศอันดับ 1 */
+.prize { margin: 18px auto 0; text-align: center; min-height: 3.2em; }
+.prize .pl { font-size: 1.4rem; color: var(--muted); font-weight: 600; }
+.prize .pv { margin-top: 6px; font-size: clamp(1.8rem, 5vh, 3.4rem); font-weight: 800; line-height: 1.15; color: var(--gold); text-shadow: 0 2px 14px var(--bg); overflow-wrap: anywhere; }
+.prize .pv .ph-fill { margin-right: .3em; }
+.prize .pv.pop { animation: pop .6s var(--spring) both; }
+.prize .pl.wait::after { content: ''; display: inline-block; width: 1.6em; text-align: left; animation: dots 1.2s steps(4, end) infinite; }
+@keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+@media (prefers-reduced-motion: reduce) { .prize .pv.pop, .prize .pl.wait::after { animation: none; } }

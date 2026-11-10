@@ -187,9 +187,10 @@ function lobby() {
   lobbyRefresh = async () => {
     const { data } = await db.from('players').select('nickname').eq('game_id', G.game_id).order('joined_at');
     if (!data || $('h-lobby').classList.contains('hide')) return;
-    const seen = lobbySeen;
+    const seen = lobbySeen, fresh = [];
     data.forEach(p => {
       if (seen.has(p.nickname)) return;
+      fresh.push(p.nickname);
       const b = document.createElement('span');
       b.className = 'bubble tint' + (seen.size % 8 + 1);
       b.style.setProperty('--bd', (seen.size % 7) * -.45 + 's'); b.style.setProperty('--tilt', ((seen.size * 7) % 9 - 4) + 'deg');
@@ -198,6 +199,7 @@ function lobby() {
       seen.add(p.nickname); sfx.pop();
     });
     const n = data.length;
+    send({ type: 'lobby', n, latest: fresh.slice(-3) }).catch(() => {});   // มือถือที่รออยู่เห็นจำนวนคนและชื่อคนที่เพิ่งเข้า
     if (n !== (+$('countNum').dataset.n || 0)) { UI.countTo($('countNum'), n, 500); restart($('countNum'), 'bump .35s'); }
     $('count').textContent = n ? 'ผู้เล่นเข้าร่วมแล้ว' : 'ยังไม่มีผู้เล่น';
   };
@@ -500,9 +502,7 @@ function showLive() {
   const cloud = viewStyle === 'cloud';
   $('chart').classList.toggle('hide', cloud || fogged);
   $('cloud').classList.toggle('hide', !cloud || fogged);
-  $('viewSeg').classList.toggle('hide', fogged);
 }
-document.querySelectorAll('input[name=view]').forEach(r => r.onchange = () => { view = r.value; resetChart(); paintVote(lastDist, lastAnswered); });
 window.addEventListener('resize', () => {
   if (!G || G.kind !== 'vote' || $('h-q').classList.contains('hide')) return;
   fitRows();

@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261110164718">
+<link rel="stylesheet" href="theme.css?v=20261110165324">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261110164718"></script>
+<script src="config.js?v=20261110165324"></script>
 <style>
   main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
   section { flex: 1; display: flex; flex-direction: column; }
@@ -75,6 +75,9 @@
   @keyframes crowndrop { from { transform: translateY(-40px) scale(.4) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
   @keyframes wingl { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 35%, transparent), 0 0 44px color-mix(in srgb, var(--gold) 55%, transparent); } }
   #pconfetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 70; }
+  /* ออกจากเกม: ลิงก์เล็ก ๆ จางตรงมุมล่าง ไม่ใช่ปุ่ม (พื้นที่กดยังสูง 44px) */
+  .leavelink { display: block; margin: 56px auto 8px; min-height: 44px; padding: 0 20px; border: 0; background: none; color: var(--muted); opacity: .55; font: 500 .85rem var(--font-body); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; touch-action: manipulation; }
+  .leavelink:hover, .leavelink:focus-visible { opacity: 1; }
   .progline { display: flex; align-items: center; gap: 10px; font: 700 1.1rem var(--font-display); }
   .beatico { color: var(--c1); font-size: 1.7rem; animation: bump 1s ease-in-out infinite; }
   .qgrid.many:not(.shapes) .item { min-height: 62px; font-size: 1.05rem; padding-top: 4px; padding-bottom: 4px; }
@@ -175,7 +178,7 @@
       <h3 id="liveHead">ลุ้นไปพร้อมกัน</h3>
       <div id="liveTop" role="status"></div>
       <div id="liveProg" class="hide">
-        <div class="progline"><i class="ph-fill ph-lightning beatico" aria-hidden="true"></i><span>เพื่อนโหวตแล้ว <b id="progNum" class="num"><span id="progA">0</span> จาก <span id="progP"></span></b> คน</span></div>
+        <div class="progline"><i class="ph-fill ph-lightning beatico" aria-hidden="true"></i><span id="progSome">เพื่อนโหวตแล้ว <b id="progNum" class="num"><span id="progA">0</span> จาก <span id="progP"></span></b> คน</span><span id="progAll" class="hide">ทุกคนโหวตครบแล้ว</span></div>
         <div class="lrow"><div class="b"><i id="progBar" style="transform:scaleX(0)"></i></div></div>
         <p class="muted" style="margin-top:10px">ผลจะประกาศที่หน้าจอใหญ่ ใครจะได้มงกุฎนะ?</p>
       </div>
@@ -221,7 +224,7 @@
     <div class="big" id="finalRank" style="color:var(--accent)"></div>
     <p class="muted center-text" id="finalScore">ขอบคุณที่มาร่วมสนุกด้วยกัน ดูผลทั้งหมดที่หน้าจอใหญ่</p>
   </section>
-  <button type="button" class="btn ghost small hide" id="leaveBtn" style="align-self:center;margin-top:16px"><i class="ph-bold ph-arrow-counter-clockwise" aria-hidden="true"></i>ออกจากเกมนี้</button>
+  <button type="button" class="leavelink hide" id="leaveBtn">ออกจากเกม</button>
 </main>
 
 <script>
@@ -246,17 +249,18 @@ setInterval(() => {
   if (!el.textContent) return next();
   el.classList.add('out'); setTimeout(next, 400);
 }, 4200);
+const LEAVE_OK = ['s-wait', 's-voted', 's-vresult', 's-result', 's-locked', 's-end'];
 const show = id => {
   curScreen = id;
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
   { const el = $(id); el.classList.remove('screen-up'); void el.offsetWidth; el.classList.add('screen-up'); }
-  $('leaveBtn').classList.toggle('hide', id === 's-pin' || id === 's-nick');
+  $('leaveBtn').classList.toggle('hide', !LEAVE_OK.includes(id));          // ซ่อนในหน้าที่ต้องกดเลือกเยอะ กันนิ้วพลาด
 };
 const LETTERS = 'กขคงจฉชซ';
 const SHAPES = ['triangle', 'diamond', 'circle', 'square', 'star', 'heart', 'hexagon', 'pentagon'];   // choice N = colour N + shape N
 
 let me = null;          // { player_id, game_id, pin, nick }
-let chan = null, pollT = null, finished = false;
+let chan = null, pollT = null, finished = false, sentJoin = false;
 let cur = null;         // คำถามที่เปิดอยู่ (ข้อความล่าสุดจากโฮสต์)
 let tick = null, answeredIdx = -1, sel = [], lastTally = null, timeUp = false;
 const myVote = {};
@@ -323,7 +327,7 @@ function start() {
   show('s-wait');
   chan = db.channel('quiz-' + me.pin, { config: { broadcast: { self: false } } })
     .on('broadcast', { event: 'state' }, ({ payload }) => handle(payload))
-    .subscribe(status => { if (status === 'SUBSCRIBED') resync(); });
+    .subscribe(status => { if (status === 'SUBSCRIBED') { resync(); if (!sentJoin) { sentJoin = true; chan.send({ type: 'broadcast', event: 'join', payload: {} }); } } });
   // ตาข่ายนิรภัย: ถึงข้อความสดจะหลุด ก็ยังตามทันจากฐานข้อมูลทุก 3 วินาที
   clearInterval(pollT); pollT = setInterval(resync, 3000);
 }
@@ -564,6 +568,8 @@ function paintLive() {
     $('liveEmpty').classList.toggle('hide', !!lastTally);
     if (lastTally) {
       $('progP').textContent = lastTally.players; UI.countTo($('progA'), lastTally.answered, 500);
+      const all = lastTally.players > 0 && lastTally.answered >= lastTally.players;      // ครบทุกคนแล้ว ไม่ต้องบอก "33 จาก 33"
+      $('progSome').classList.toggle('hide', all); $('progAll').classList.toggle('hide', !all);
       $('progBar').style.transform = `scaleX(${lastTally.players ? Math.min(1, lastTally.answered / lastTally.players) : 0})`;
     }
     return;
@@ -660,7 +666,7 @@ function onEnded(m) {
 }
 </script>
 <canvas id="pconfetti" aria-hidden="true"></canvas>
-<script src="ui.js?v=20261110164718"></script>
-<script src="fx.js?v=20261110164718"></script>
+<script src="ui.js?v=20261110165324"></script>
+<script src="fx.js?v=20261110165324"></script>
 </body>
 </html>

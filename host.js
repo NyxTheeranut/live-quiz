@@ -57,6 +57,7 @@ let viewStyle = 'bars', lastDist = {}, lastAnswered = 0;
 let allIn = false, frozenLeft = 0, censored = false;
 let qEnd = 0, fogged = false, fogIntensity = 0, fogMode = 'normal', fogTxtT = null;
 let G = null;            // { game_id, pin, host_token, kind, title, questions, qi }
+let lobbyRefresh = null, lobbySeen = new Set(), joinT = 0;
 let channel = null, poll = null, tick = null, revealing = false, lastTally = '', lastTallyAt = 0, view = 'person';
 
 const saveGame = () => { try { localStorage.setItem('quiz-host', JSON.stringify(G)); } catch (e) {} };
@@ -100,6 +101,8 @@ function confetti() {
 // ---------- ช่องสัญญาณสด: โฮสต์ส่ง มือถือฟัง ----------
 function openChannel() {
   channel = db.channel('quiz-' + G.pin, { config: { broadcast: { self: false, ack: true } } });
+  // มือถือแจ้งว่าเข้าห้องแล้ว: ไม่เชื่อชื่อในข้อความ (ใครรู้ PIN ก็ส่งได้) แค่สั่งให้อ่านรายชื่อจริงจากฐานข้อมูลทันที
+  channel.on('broadcast', { event: 'join' }, () => { clearTimeout(joinT); joinT = setTimeout(() => lobbyRefresh && lobbyRefresh(), 150); });
   channel.subscribe();
 }
 const send = payload => channel.send({ type: 'broadcast', event: 'state', payload });
@@ -180,10 +183,11 @@ function lobby() {
   show('h-lobby');
   stopTimers();
   Sound.music(musicOn(), .18);
-  const seen = new Set();
-  const refresh = async () => {
+  lobbySeen = new Set();
+  lobbyRefresh = async () => {
     const { data } = await db.from('players').select('nickname').eq('game_id', G.game_id).order('joined_at');
-    if (!data) return;
+    if (!data || $('h-lobby').classList.contains('hide')) return;
+    const seen = lobbySeen;
     data.forEach(p => {
       if (seen.has(p.nickname)) return;
       const b = document.createElement('span');
@@ -195,9 +199,9 @@ function lobby() {
     });
     const n = data.length;
     if (n !== (+$('countNum').dataset.n || 0)) { UI.countTo($('countNum'), n, 500); restart($('countNum'), 'bump .35s'); }
-    $('count').textContent = n ? `เข้าร่วมแล้ว ${n} คน` : 'ยังไม่มีผู้เล่น';
+    $('count').textContent = n ? 'ผู้เล่นเข้าร่วมแล้ว' : 'ยังไม่มีผู้เล่น';
   };
-  refresh(); poll = setInterval(refresh, 1500);
+  lobbyRefresh(); poll = setInterval(lobbyRefresh, 3000);   // ข้อความสด "join" จากมือถือเรียกอัปเดตทันที การถามทุก 3 วินาทีเป็นตาข่ายนิรภัย
 }
 $('startBtn').onclick = () => intro(0);
 
@@ -304,7 +308,7 @@ async function askQuestion(i) {
     const { data } = await host('host_stats', { p_idx: i });
     if (!data) return;
     const noun = vote ? 'โหวต' : 'ตอบ';
-    $('qans').textContent = data.answered ? `${noun}แล้ว ${data.answered} จาก ${data.players} คน` : `ยังไม่มีใคร${noun}`;
+    $('qans').textContent = !data.answered ? `ยังไม่มีใคร${noun}` : data.players > 0 && data.answered >= data.players ? `ทุกคน${noun}ครบแล้ว` : `${noun}แล้ว ${data.answered} จาก ${data.players} คน`;
     $('qbar').style.transform = `scaleX(${data.players ? Math.min(1, data.answered / data.players) : 0})`;
     if (vote) {
       paintVote(data.dist, data.answered); broadcastTally(i, data);

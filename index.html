@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&family=Prompt:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-<link rel="stylesheet" href="theme.css?v=20261106162055">
+<link rel="stylesheet" href="theme.css?v=20261110164718">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="config.js?v=20261106162055"></script>
+<script src="config.js?v=20261110164718"></script>
 <style>
   main { width: 100%; max-width: 560px; margin: 0 auto; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
   section { flex: 1; display: flex; flex-direction: column; }
@@ -63,6 +63,18 @@
   .qgrid .item:active, .qgrid .item.press { transform: translateY(5px) scale(.97); box-shadow: 0 0 0 rgba(0, 0, 0, .28); }
   .qgrid .item i { font-size: 1.8rem; flex: none; }
   #votedName.many { font-size: 1.5rem; display: grid; gap: 4px; }
+  /* โหวตเสร็จ: เครื่องหมายถูกเด้งพร้อมวงขยาย ชื่อที่เลือกลอยขึ้น การ์ดอื่นหรี่ */
+  #vlist.sent .item[aria-pressed=false] { opacity: .25; transition: opacity var(--dur-base); }
+  #vlist.sent .item[aria-pressed=true] { transform: translateY(-4px) scale(1.03); transition: transform var(--dur-base) var(--spring); }
+  #s-voted:not(.hide) .crownic { display: inline-block; animation: checkpop var(--dur-slow) var(--spring) both; }
+  #s-voted:not(.hide) #votedName { animation: rise var(--dur-slow) .15s var(--ease) both; }
+  @keyframes checkpop { 0% { transform: scale(0) rotate(-25deg); } 70% { transform: scale(1.25) rotate(6deg); } 100% { transform: scale(1) rotate(0); } }
+  #s-vresult:not(.hide) .crownic { display: inline-block; animation: crowndrop .8s var(--spring) both; }
+  #s-vresult .result { transition: box-shadow var(--dur-slow); }
+  #s-vresult .result.win { animation: wingl 1.6s ease-in-out 3; border-color: var(--gold); }
+  @keyframes crowndrop { from { transform: translateY(-40px) scale(.4) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes wingl { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 35%, transparent), 0 0 44px color-mix(in srgb, var(--gold) 55%, transparent); } }
+  #pconfetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 70; }
   .progline { display: flex; align-items: center; gap: 10px; font: 700 1.1rem var(--font-display); }
   .beatico { color: var(--c1); font-size: 1.7rem; animation: bump 1s ease-in-out infinite; }
   .qgrid.many:not(.shapes) .item { min-height: 62px; font-size: 1.05rem; padding-top: 4px; padding-bottom: 4px; }
@@ -163,7 +175,7 @@
       <h3 id="liveHead">ลุ้นไปพร้อมกัน</h3>
       <div id="liveTop" role="status"></div>
       <div id="liveProg" class="hide">
-        <div class="progline"><i class="ph-fill ph-lightning beatico" aria-hidden="true"></i><span>เพื่อนโหวตแล้ว <b id="progNum" class="num"></b> คน</span></div>
+        <div class="progline"><i class="ph-fill ph-lightning beatico" aria-hidden="true"></i><span>เพื่อนโหวตแล้ว <b id="progNum" class="num"><span id="progA">0</span> จาก <span id="progP"></span></b> คน</span></div>
         <div class="lrow"><div class="b"><i id="progBar" style="transform:scaleX(0)"></i></div></div>
         <p class="muted" style="margin-top:10px">ผลจะประกาศที่หน้าจอใหญ่ ใครจะได้มงกุฎนะ?</p>
       </div>
@@ -237,6 +249,7 @@ setInterval(() => {
 const show = id => {
   curScreen = id;
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+  { const el = $(id); el.classList.remove('screen-up'); void el.offsetWidth; el.classList.add('screen-up'); }
   $('leaveBtn').classList.toggle('hide', id === 's-pin' || id === 's-nick');
 };
 const LETTERS = 'กขคงจฉชซ';
@@ -523,6 +536,9 @@ $('voteBtn').onclick = async () => {
   if (error && /ไปแล้ว/.test(error.message)) { myVote[idx] = myVote[idx] || []; saveVotes(); return showVoted(); }   // เคยโหวตไปแล้ว (เช่น รีเฟรชหน้า)
   if (error) { $('vErr').textContent = error.message; $('voteBtn').disabled = false; return; }
   myVote[idx] = picks; saveVotes();
+  try { navigator.vibrate && navigator.vibrate(18); } catch (x) {}
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) { $('vlist').classList.add('sent'); await new Promise(r => setTimeout(r, 420)); }
+  $('vlist').classList.remove('sent');
   showVoted();
 };
 
@@ -547,7 +563,7 @@ function paintLive() {
   if (!live) {
     $('liveEmpty').classList.toggle('hide', !!lastTally);
     if (lastTally) {
-      $('progNum').textContent = `${lastTally.answered} จาก ${lastTally.players}`;
+      $('progP').textContent = lastTally.players; UI.countTo($('progA'), lastTally.answered, 500);
       $('progBar').style.transform = `scaleX(${lastTally.players ? Math.min(1, lastTally.answered / lastTally.players) : 0})`;
     }
     return;
@@ -555,15 +571,21 @@ function paintLive() {
   const top = lastTally.top;
   $('liveEmpty').classList.toggle('hide', top.length > 0);
   const max = top.length ? top[0][1] : 1;
-  $('liveTop').innerHTML = '';
-  top.slice(0, 3).forEach(([k, n]) => {
-    const row = document.createElement('div'); row.className = 'lrow';
-    row.innerHTML = '<div class="t"><span></span><b></b></div><div class="b"><i></i></div>';
-    row.querySelector('span').textContent = cur.choices[k];
-    row.querySelector('b').textContent = n;
-    row.querySelector('i').style.transform = `scaleX(${n / max})`;
-    $('liveTop').appendChild(row);
+  const keep = {}; $('liveTop').querySelectorAll('.lrow').forEach(r => { keep[r.dataset.k] = r; });
+  const rows = top.slice(0, 3).map(([k, n]) => {
+    let row = keep[k]; delete keep[k];
+    if (!row) {
+      row = document.createElement('div'); row.className = 'lrow'; row.dataset.k = k;
+      row.innerHTML = '<div class="t"><span></span><b>0</b></div><div class="b"><i style="transform:scaleX(0)"></i></div>';
+      row.querySelector('span').textContent = cur.choices[k];
+      $('liveTop').appendChild(row);
+    }
+    UI.countTo(row.querySelector('b'), n, 500);
+    const bar = row.querySelector('i'); requestAnimationFrame(() => { bar.style.transform = `scaleX(${n / max})`; });
+    return row;
   });
+  Object.values(keep).forEach(r => r.remove());
+  rows.forEach(r => $('liveTop').appendChild(r));       // เรียงตามอันดับล่าสุด
 }
 
 function onVoteReveal(m) {
@@ -579,7 +601,24 @@ function onVoteReveal(m) {
   const mine = myVote[m.idx];
   $('vrYou').textContent = !mine ? 'รอบนี้คุณไม่ได้โหวต'
     : (winners.some(r => mine.includes(r.k)) ? 'คุณโหวตถูกใจชาวบ้าน ได้ตัวเต็งเลย' : 'คุณโหวตให้ ' + mine.map(k => q.choices[k]).join(' / '));
+  const hit = !!mine && winners.some(r => mine.includes(r.k));
+  $('vrYou').closest('section').querySelector('.result').classList.toggle('win', hit);
   show('s-vresult');
+  if (hit) { try { navigator.vibrate && navigator.vibrate([40, 50, 90]); } catch (x) {} phoneConfetti(); }
+}
+// พลุบนมือถือ: เมื่อคนที่โหวตให้ชนะ
+function phoneConfetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = $('pconfetti'), ctx = cv.getContext('2d'); cv.width = innerWidth; cv.height = innerHeight;
+  const css = getComputedStyle(document.documentElement), cols = ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6'].map(v => css.getPropertyValue(v).trim());
+  const bits = Array.from({ length: 90 }, () => ({ x: Math.random() * cv.width, y: -10 - Math.random() * cv.height * .5, w: 6 + Math.random() * 7, h: 9 + Math.random() * 9,
+    vy: 3 + Math.random() * 3.5, vx: -1.5 + Math.random() * 3, r: Math.random() * 6, vr: -.25 + Math.random() * .5, c: cols[(Math.random() * cols.length) | 0] }));
+  const t0 = performance.now();
+  (function frame(t) {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    bits.forEach(b => { b.x += b.vx; b.y += b.vy; b.r += b.vr; ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.r); ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.restore(); });
+    if (t - t0 < 3200) requestAnimationFrame(frame); else ctx.clearRect(0, 0, cv.width, cv.height);
+  })(t0);
 }
 
 // ---------- ควิซ ----------
@@ -620,7 +659,8 @@ function onEnded(m) {
   show('s-end');
 }
 </script>
-<script src="ui.js?v=20261106162055"></script>
-<script src="fx.js?v=20261106162055"></script>
+<canvas id="pconfetti" aria-hidden="true"></canvas>
+<script src="ui.js?v=20261110164718"></script>
+<script src="fx.js?v=20261110164718"></script>
 </body>
 </html>

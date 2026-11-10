@@ -34,3 +34,17 @@ const UI = (() => {
   }
   return { confirm, toast };
 })();
+
+// number that counts up/down to its new value (instant when the person asked for less motion)
+UI.countTo = (el, to, ms = 600) => {
+  const from = +el.dataset.n || 0; el.dataset.n = to; el.classList.add('rollnum');
+  cancelAnimationFrame(+el.dataset.raf || 0);
+  if (from === to || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = to; return; }
+  const t0 = performance.now(), ease = x => 1 - Math.pow(1 - x, 3);
+  const step = now => {
+    const p = Math.min(1, (now - t0) / ms);
+    el.textContent = Math.round(from + (to - from) * ease(p));
+    if (p < 1) el.dataset.raf = requestAnimationFrame(step);
+  };
+  el.dataset.raf = requestAnimationFrame(step);
+};

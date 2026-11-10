@@ -461,7 +461,7 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 
 /* ---------- winner: rotating light rays behind the name ---------- */
 .stage { position: relative; isolation: isolate; }
-.stage::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(1100px, 130%); aspect-ratio: 1; translate: -50% -50%; z-index: -1; opacity: 0; pointer-events: none;
+.stage::before { content: ""; will-change: transform; position: absolute; left: 50%; top: 50%; width: min(1100px, 130%); aspect-ratio: 1; translate: -50% -50%; z-index: -1; opacity: 0; pointer-events: none;
   background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--medal, var(--gold)) 34%, transparent) 0 8deg, transparent 8deg 24deg);
   -webkit-mask-image: radial-gradient(circle, #000 0, transparent 52%); mask-image: radial-gradient(circle, #000 0, transparent 52%); }
 .stage.won::before { opacity: .6; animation: rays 18s linear infinite, fadein .8s var(--ease) both; }
@@ -547,7 +547,7 @@ fieldset.setrow { border: 0; padding: 0; margin: 0 0 8px; min-width: 0; }
 .prize.big.settle { animation: pfade .5s var(--ease) both; }
 @keyframes pdark { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pfade { to { opacity: 0; } }
-.prays { position: absolute; left: 50%; top: 46%; width: 190vmax; aspect-ratio: 1; margin: -95vmax 0 0 -95vmax; pointer-events: none; opacity: 0;
+.prays { position: absolute; left: 50%; top: 46%; width: 140vmax; aspect-ratio: 1; margin: -70vmax 0 0 -70vmax; will-change: transform; pointer-events: none; opacity: 0;
   background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--gold) 34%, transparent) 0 6deg, transparent 6deg 20deg);
   -webkit-mask-image: radial-gradient(circle, #000 0, transparent 38%); mask-image: radial-gradient(circle, #000 0, transparent 38%); animation: pspin 22s linear infinite, pglow 3.4s ease-in forwards; }
 .prays.on { opacity: .9; animation: pspin 14s linear infinite; }

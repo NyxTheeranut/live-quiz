@@ -6,6 +6,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const show = id => {
   SCREENS.forEach(s => $(s).classList.toggle('hide', s !== id));
+  if (id !== 'h-prize') { const el = $(id); el.classList.remove('screen-in'); void el.offsetWidth; el.classList.add('screen-in'); }
   if (id !== 'h-prize') $('prizeBack').classList.add('hide');   // ปุ่มอยู่นอกหน้า (กันถูกปุ่มแตะทั้งจอบัง)
   document.body.classList.toggle('lockq', id === 'h-q' || id === 'h-board');
   if (id !== 'h-reveal' && id !== 'h-board') { setNext(null, false); tapResolve = null; nextAction = null; }
@@ -193,7 +194,7 @@ function lobby() {
       seen.add(p.nickname); sfx.pop();
     });
     const n = data.length;
-    if (String(n) !== $('countNum').textContent) { $('countNum').textContent = n; restart($('countNum'), 'bump .35s'); }
+    if (n !== (+$('countNum').dataset.n || 0)) { UI.countTo($('countNum'), n, 500); restart($('countNum'), 'bump .35s'); }
     $('count').textContent = n ? `เข้าร่วมแล้ว ${n} คน` : 'ยังไม่มีผู้เล่น';
   };
   refresh(); poll = setInterval(refresh, 1500);
